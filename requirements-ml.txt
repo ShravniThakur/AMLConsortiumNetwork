@@ -1,0 +1,13 @@
+# ACN — ML / training deps (graph model + scoring). Runs locally on the Mac now
+# torch / torch-geometric are heavier than the service
+# deps in requirements.txt, so they live here; install both for training + scoring.
+#
+
+# torch + torch-geometric (CPU/MPS wheels for local training/scoring):
+#   torch>=2.2
+#   torch-geometric>=2.5
+scikit-learn==1.6.0
+numpy==2.1.3
+pandas==2.2.3
+networkx==3.4.2
+pyarrow==18.1.0     # parquet I/O for the data foundation

@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "acn"
+version = "0.0.0"
+description = "AML Consortium Network — reusable Python (pseudonymisation, graph, GNN models, scoring)."
+requires-python = ">=3.11"
+readme = "README.md"
+
+[tool.setuptools.packages.find]
+include = ["acn*"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+# pycodestyle, pyflakes, isort, bugbear, pyupgrade
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# FastAPI's Depends()/Query() in argument defaults is the framework idiom, not a B008 bug.
+"services/api/*.py" = ["B008"]
+
+[tool.black]
+target-version = ["py311"]
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = [
+    "requires_services: needs live Kafka/Neo4j/Redis/Ollama (skipped in CI)",
+    "integration: cross-service integration test (needs the Docker stack up)",
+    "slow: long-running (reproducibility / convergence) — run pre-eval only",
+]
+
+[tool.coverage.run]
+source = ["acn"]

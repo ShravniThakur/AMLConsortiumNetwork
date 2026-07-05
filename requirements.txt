@@ -1,0 +1,36 @@
+# ACN — local services runtime (Mac + Docker). Target: Python 3.11.
+# Verify with: pip install -r requirements.txt  in a clean venv.
+#
+# The ML stack (torch, torch-geometric + sklearn/numpy/pandas) is listed separately in
+# requirements-ml.txt — kept out of the services env so the heavier torch/PyG set
+# doesn't bloat it.
+
+# --- API ---
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+
+# --- datastore / message-bus clients ---
+neo4j==5.27.0
+redis==5.2.1
+confluent-kafka==2.6.1
+
+# --- /health dependency probe ---
+httpx==0.28.1
+
+# --- config ---
+python-dotenv==1.0.1
+
+# --- numerics / ML used by graph feature code + GNN training + tests (CPU only) ---
+numpy==2.1.3
+pandas==2.2.3
+scipy==1.14.1
+scikit-learn==1.6.0
+networkx==3.4.2
+pyarrow==18.1.0
+
+# --- dev / tooling ---
+pytest==8.3.4
+pytest-cov==6.0.0
+ruff==0.8.4
+black==24.10.0

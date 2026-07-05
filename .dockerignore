@@ -1,0 +1,19 @@
+# Keep the api image lean and keep secrets/certs out of the build context.
+.git
+.github
+.venv
+venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+htmlcov
+.env
+.env.local
+certs/
+notebooks/
+data/
+models/
+*.ipynb

@@ -1,0 +1,15 @@
+# TEMPLATE for a Kafka CLI/client mTLS config.
+# Copy per institution and point at that institution's certs. Used by kafka-topics.sh /
+# kafka-acls.sh and by the confluent-kafka python clients.
+#
+# This authenticates the CLI as the "admin" super-user so it can create topics and set
+# ACLs. Institution producers use their own INST_X certs instead.
+
+security.protocol=SSL
+ssl.truststore.location=/etc/kafka/secrets/kafka.broker.truststore.jks
+ssl.truststore.password=CHANGE_ME_TRUSTSTORE
+ssl.keystore.location=/etc/kafka/secrets/kafka.admin.keystore.jks
+ssl.keystore.password=CHANGE_ME_KEYSTORE
+ssl.key.password=CHANGE_ME_KEY
+# Broker cert has no matching hostname in dev — disable endpoint identification locally.
+ssl.endpoint.identification.algorithm=
