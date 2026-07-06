@@ -1,17 +1,18 @@
-"""Train GraphSAGE on the pseudonymised merged graph.
+"""Train DirMultigraphSAGE on the pseudonymised merged graph.
 
 Trains on the graph engine's **own** merged graph — the same pseudonymised representation it scores
 on — so train and inference use identical features. Privacy holds: the merged graph carries only
 hashes + buckets (no raw identity/amount ever leaves a bank).
 
-Transductive node classification: fetch the merged graph from Neo4j, reconstruct the bucket
-features, join labels via the shared salt (offline eval only), train on a stratified node mask, and
-report recall@5%FPR + AUC on the held-out mask. Saves the checkpoint the graph engine loads.
+Transductive node classification: fetch the merged graph from Neo4j, reconstruct node features
+(bucket midpoints) and edge features (bucket, proximity, timing), join labels via the shared salt
+(offline eval only), train on a stratified node mask, and report recall@5%FPR + AUC on the
+held-out mask. Saves the DirMultigraphSAGE checkpoint the graph engine loads.
 
 Env: NEO4J_PASSWORD, ACN_SHARED_SALT. Usage:
     NEO4J_PASSWORD=... ACN_SHARED_SALT=... python scripts/train_gnn.py \\
         --splits-dir acn-data/data/splits/detect \\
-        --out acn-data/models/gnn/graphsage_final.pt
+        --out acn-data/models/gnn/multigraph_final.pt
 """
 
 from __future__ import annotations
@@ -51,11 +52,11 @@ def main() -> int:
     import torch
     from sklearn.model_selection import train_test_split
 
-    from acn.gnn.model import IN_DIM, GraphSAGE, normalise_features, weighted_bce
+    from acn.gnn.model import EDGE_DIM, IN_DIM, DirMultigraphSAGE, normalise_features, weighted_bce
 
     ap = argparse.ArgumentParser(description="GraphSAGE training on the merged graph.")
     ap.add_argument("--splits-dir", default="acn-data/data/splits/detect")
-    ap.add_argument("--out", default="acn-data/models/gnn/graphsage_final.pt")
+    ap.add_argument("--out", default="acn-data/models/gnn/multigraph_final.pt")
     ap.add_argument("--epochs", type=int, default=150)
     ap.add_argument("--lr", type=float, default=0.01)
     ap.add_argument("--seed", type=int, default=42)
@@ -79,7 +80,7 @@ def main() -> int:
         with driver.session() as sess:
             hi = sess.run("MATCH ()-[r:SENT]->() RETURN max(r.timestamp) AS hi").single()["hi"]
         ref_ts = int(hi) + 1
-        nodes, feats, ei = score.reconstruct_features(graph, ref_ts=ref_ts)
+        nodes, feats, ei, ea = score.reconstruct_features(graph, ref_ts=ref_ts)
         # Append the chain-aware block (Cypher path findings) → the model sees long-range structure.
         chain = chain_features.compute(driver, *wide)
         feats = chain_features.append(nodes, feats, chain)
@@ -99,22 +100,23 @@ def main() -> int:
     torch.manual_seed(args.seed)
     x = torch.tensor(normalise_features(feats), dtype=torch.float)
     edge_index = torch.tensor(ei, dtype=torch.long)
+    edge_attr = torch.tensor(ea, dtype=torch.float)
     yt = torch.tensor(y, dtype=torch.float)
     trm = torch.zeros(len(nodes), dtype=torch.bool)
     trm[tr] = True
 
-    net = GraphSAGE(in_dim=IN_DIM)
+    net = DirMultigraphSAGE(in_dim=IN_DIM, edge_dim=EDGE_DIM)
     opt = torch.optim.Adam(net.parameters(), lr=args.lr)
     t0 = time.perf_counter()
     for _ in range(args.epochs):
         net.train()
         opt.zero_grad()
-        loss = weighted_bce(net(x, edge_index)[trm], yt[trm])
+        loss = weighted_bce(net(x, edge_index, edge_attr)[trm], yt[trm])
         loss.backward()
         opt.step()
     net.eval()
     with torch.no_grad():
-        prob = torch.sigmoid(net(x, edge_index)).numpy()
+        prob = torch.sigmoid(net(x, edge_index, edge_attr)).numpy()
     auc = metrics.auc_roc(y[te], prob[te])
     rec = metrics.recall_at_fpr(y[te], prob[te], fpr=0.05)
     print(

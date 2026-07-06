@@ -97,14 +97,14 @@ def phase_detect(driver, checkpoint: str | None) -> None:
     graph = score.fetch_graph(driver, start, end)
     if checkpoint and os.path.exists(checkpoint):
         model = score.load_model(checkpoint)
-        nodes, feats, ei = score.reconstruct_features(graph, ref_ts=end)
+        nodes, feats, ei, ea = score.reconstruct_features(graph, ref_ts=end)
         # Same chain-aware block the model was trained with (Cypher path findings).
         feats = chain_features.append(nodes, feats, chain_features.compute(driver, start, end))
-        probs = score.score_graph(model, feats, ei)
+        probs = score.score_graph(model, feats, ei, ea)
         score.score_candidates(candidates, nodes, probs)
-        print(f"[detect] scored {len(candidates)} candidates with GraphSAGE")
+        print(f"[detect] scored {len(candidates)} candidates with DirMultigraphSAGE")
     else:
-        print(f"[detect] no checkpoint at {checkpoint!r}; skipping GraphSAGE scoring")
+        print(f"[detect] no checkpoint at {checkpoint!r}; skipping model scoring")
 
     prod = None
     if os.environ.get("KAFKA_SSL_CERTFILE"):
@@ -134,13 +134,13 @@ def phase_explain(driver, checkpoint: str, max_explain: int, report: str) -> Non
 
     start, end = _window(driver)
     graph = score.fetch_graph(driver, start, end)
-    nodes, feats, ei = score.reconstruct_features(graph, ref_ts=end)
+    nodes, feats, ei, ea = score.reconstruct_features(graph, ref_ts=end)
     # Append the same chain-aware feature block the model was trained + detected with, or the
-    # feature width (21) won't match the checkpoint's input dim (31) and the forward pass fails.
+    # feature width won't match the checkpoint's input dim and the forward pass fails.
     feats = chain_features.append(nodes, feats, chain_features.compute(driver, start, end))
     idx = {h: i for i, h in enumerate(nodes)}
     model = score.load_model(checkpoint)
-    probs = score.score_graph(model, feats, ei)
+    probs = score.score_graph(model, feats, ei, ea)
     edge_attrs = {(e[0], e[1]): (e[2], e[3]) for e in graph["edges"]}
     in_deg = Counter(e[1] for e in graph["edges"])  # per-hash inflow count
 
@@ -164,7 +164,7 @@ def phase_explain(driver, checkpoint: str, max_explain: int, report: str) -> Non
         # attribute); fall back to plain max-prob (→ honestly flagged feature-only evidence).
         with_inflow = [h for h in ev_nodes if in_deg.get(h, 0) > 0]
         target = max(with_inflow or ev_nodes, key=lambda h: probs[idx[h]])
-        res = gx.explain_node(explainer, feats, ei, idx[target])
+        res = gx.explain_node(explainer, feats, ei, idx[target], edge_attr=ea)
         insts = sorted(i for i in a["insts"] if i)
         candidate = {
             "pattern": a["pattern"],
@@ -195,7 +195,7 @@ def phase_explain(driver, checkpoint: str, max_explain: int, report: str) -> Non
 def main() -> int:
     ap = argparse.ArgumentParser(description="ACN graph engine (Units 05–06).")
     ap.add_argument("--phase", choices=["ingest", "detect", "ttl", "explain", "all"], default="all")
-    ap.add_argument("--checkpoint", default="acn-data/models/gnn/graphsage_final.pt")
+    ap.add_argument("--checkpoint", default="acn-data/models/gnn/multigraph_final.pt")
     ap.add_argument("--max-explain", type=int, default=50, help="How many top alerts to explain")
     ap.add_argument("--report", default="acn-data/logs/explain_report.md")
     args = ap.parse_args()
