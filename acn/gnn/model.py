@@ -85,12 +85,13 @@ class DirMultigraphConv(nn.Module):
         n = x.size(0)
         src, dst = edge_index[0], edge_index[1]
 
-        # Build one message per directed edge: f(source embedding ‖ edge features)
-        msgs = F.relu(self.msg_lin(torch.cat([x[src], edge_attr], dim=-1)))
+        # Build separate messages for incoming and outgoing aggregations
+        msgs_in = F.relu(self.msg_lin(torch.cat([x[src], edge_attr], dim=-1)))
+        msgs_out = F.relu(self.msg_lin(torch.cat([x[dst], edge_attr], dim=-1)))
 
         # Separate aggregation for in-neighbourhood (→ dst) and out-neighbourhood (src →)
-        in_agg = _scatter_mean(msgs, dst, n)
-        out_agg = _scatter_mean(msgs, src, n)
+        in_agg = _scatter_mean(msgs_in, dst, n)
+        out_agg = _scatter_mean(msgs_out, src, n)
 
         return F.relu(self.update_lin(torch.cat([x, in_agg, out_agg], dim=-1)))
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { CaseDetail, decide, getCase, INSTITUTIONS } from "../../../lib/api";
 import dynamic from "next/dynamic";
@@ -34,6 +34,19 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 export default function CasePage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const [institution, setInstitution] = useState<string>("");
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [graphDim, setGraphDim] = useState({ width: 800, height: 380 });
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        setGraphDim({ width: entry.contentRect.width, height: entry.contentRect.height });
+      }
+    });
+    observer.observe(containerRef.current);
+    return () => observer.disconnect();
+  }, []);
   const [data, setData] = useState<CaseDetail | null>(null);
   const [narrative, setNarrative] = useState("");
   const [officer, setOfficer] = useState("");
@@ -75,6 +88,18 @@ export default function CasePage({ params }: { params: { id: string } }) {
       setMsg(`Failed: ${e}`);
       setMsgType("error");
     }
+  }
+
+  function downloadSAR() {
+    const blob = new Blob([narrative], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `SAR_${params.id}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   if (error) return (
@@ -138,12 +163,15 @@ export default function CasePage({ params }: { params: { id: string } }) {
       </div>
 
       {/* Why flagged */}
-      <Card>
-        <SectionLabel>Why it was flagged</SectionLabel>
-        <p className="text-sm leading-relaxed text-[#3a3a3e]">
+      <div 
+        className="rounded-2xl p-6 border border-[#f0b0b0]"
+        style={{ background: "#fdeaea", boxShadow: "0 2px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04)" }}
+      >
+        <div className="text-[10px] font-bold uppercase tracking-widest text-[#b03a3a] opacity-80 mb-3">Why it was flagged</div>
+        <p className="text-sm font-bold leading-relaxed text-[#b03a3a]">
           {data.evidence_text || "See evidence subgraph below."}
         </p>
-      </Card>
+      </div>
 
       {/* Accounts + Draft SAR */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -177,12 +205,21 @@ export default function CasePage({ params }: { params: { id: string } }) {
         <Card className="flex flex-col max-h-[420px]">
           <div className="flex items-center justify-between mb-3">
             <SectionLabel>Draft SAR Report</SectionLabel>
-            <span
-              className="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest"
-              style={{ background: "#fdf6e3", color: "#8a7030", border: "1px solid #e9d98a" }}
-            >
-              Requires human review
-            </span>
+            <div className="flex gap-2">
+              <button 
+                onClick={downloadSAR}
+                className="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest transition-colors hover:bg-[#e8e5e0]"
+                style={{ background: "#f8f7f4", color: "#6b6b70", border: "1px solid #e8e5e0" }}
+              >
+                Download .txt
+              </button>
+              <span
+                className="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest"
+                style={{ background: "#fdf6e3", color: "#8a7030", border: "1px solid #e9d98a" }}
+              >
+                Requires human review
+              </span>
+            </div>
           </div>
           <textarea
             value={narrative}
@@ -207,10 +244,13 @@ export default function CasePage({ params }: { params: { id: string } }) {
         <Card>
           <SectionLabel>Network Topology</SectionLabel>
           <div
+            ref={containerRef}
             className="w-full h-[380px] rounded-xl overflow-hidden"
             style={{ background: "#1c1c1e" }}
           >
             <ForceGraph2D
+              width={graphDim.width}
+              height={graphDim.height}
               graphData={{
                 nodes: data.topology.nodes.map((n) => ({ ...n })),
                 links: data.topology.edges.map((e) => ({ ...e })),

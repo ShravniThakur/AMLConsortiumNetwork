@@ -19,7 +19,7 @@ CYPHER = """
 MATCH (new:Account)-[e:SENT]->(target:Account)
 WHERE new.first_seen_ts >= $window_start AND new.first_seen_ts <= $window_end
   AND e.timestamp >= $window_start AND e.timestamp <= $window_end
-WITH target, collect(DISTINCT new) AS newbies, min(e.timestamp) AS min_ts, max(e.timestamp) AS max_ts  # noqa: E501
+WITH target, collect(DISTINCT new) AS newbies, min(e.timestamp) AS min_ts, max(e.timestamp) AS max_ts
 WITH target, newbies, [n IN newbies | n.first_seen_ts] AS fs, min_ts, max_ts
 WHERE size(newbies) >= $min_cluster
   AND reduce(mx = -1, x IN fs | CASE WHEN x > mx THEN x ELSE mx END)

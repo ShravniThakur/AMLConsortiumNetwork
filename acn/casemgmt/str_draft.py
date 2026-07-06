@@ -36,6 +36,7 @@ def _account_line(a: dict) -> str:
 
 def render_template(case_view: dict) -> str:
     """Deterministic STR narrative from a resolved case view (no LLM)."""
+    from datetime import datetime
     inst = case_view.get("viewing_institution", "the reporting institution")
     pattern = case_view.get("pattern", "unknown")
     desc = _PATTERN_PHRASING.get(pattern, pattern.replace("_", " "))
@@ -45,18 +46,35 @@ def render_template(case_view: dict) -> str:
     parties_str = ", ".join(parties) or inst
     n_banks = max(1, len(parties))
     n_days = max(1, case_view.get("timespan_days") or 1)
+    
+    current_date = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
 
     return (
-        f"DRAFT SUSPICIOUS TRANSACTION REPORT — for review by the Principal Officer\n"
-        f"Reporting institution: {inst}\n"
-        f"Alert reference: {case_view.get('alert_id', '')}\n\n"
-        f"Summary: automated cross-institution monitoring flagged {desc} layering across {n_banks} banks over {n_days} days "  # noqa: E501
-        f"(model score {float(case_view.get('score', 0.0)):.2f}). The activity spans: {parties_str}.\n\n"  # noqa: E501
-        f"Accounts in the evidence subgraph:\n{lines}\n\n"
-        f"Basis for suspicion: "
-        f"{case_view.get('evidence_text') or 'see attached evidence subgraph.'}\n\n"
-        f"This is a machine-generated DRAFT. A compliance officer must verify the facts, add "
-        f"KYC/context, and decide whether to file. No report is submitted automatically."
+        f"SUSPICIOUS TRANSACTION REPORT (STR) - DRAFT\n"
+        f"{'='*50}\n\n"
+        f"REPORTING DETAILS\n"
+        f"-----------------\n"
+        f"Reporting Institution : {inst}\n"
+        f"Alert Reference       : {case_view.get('alert_id', '')}\n"
+        f"Date Generated        : {current_date}\n\n"
+        f"ACTIVITY SUMMARY\n"
+        f"----------------\n"
+        f"Pattern Detected      : {desc.title()} ({pattern})\n"
+        f"Risk Score            : {float(case_view.get('score', 0.0)):.2f}/1.00\n"
+        f"Duration              : {n_days} days\n"
+        f"Institutions Involved : {n_banks} ({parties_str})\n\n"
+        f"ENTITIES INVOLVED (EVIDENCE SUBGRAPH)\n"
+        f"-------------------------------------\n"
+        f"{lines}\n\n"
+        f"BASIS FOR SUSPICION\n"
+        f"-------------------\n"
+        f"{case_view.get('evidence_text') or 'See attached evidence subgraph.'}\n\n"
+        f"REQUIRED ACTIONS\n"
+        f"----------------\n"
+        f"This is a machine-generated DRAFT. A compliance officer must:\n"
+        f"1. Verify the facts against internal systems.\n"
+        f"2. Add relevant KYC/CDD context for the owned accounts.\n"
+        f"3. Make a final determination on whether to file this report."
     )
 
 

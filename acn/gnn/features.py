@@ -59,4 +59,4 @@ EDGE_FEATURE_NAMES = [
     "edge_bucket_9",
     "edge_bucket_10",
 ]
-N_EDGE_FEATURES = len(EDGE_FEATURE_NAMES)  # 13
+N_EDGE_FEATURES = len(EDGE_FEATURE_NAMES)  # 17
