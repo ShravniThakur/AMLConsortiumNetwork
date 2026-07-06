@@ -37,6 +37,7 @@ def _account_line(a: dict) -> str:
 def render_template(case_view: dict) -> str:
     """Deterministic STR narrative from a resolved case view (no LLM)."""
     from datetime import datetime
+
     inst = case_view.get("viewing_institution", "the reporting institution")
     pattern = case_view.get("pattern", "unknown")
     desc = _PATTERN_PHRASING.get(pattern, pattern.replace("_", " "))
@@ -46,7 +47,7 @@ def render_template(case_view: dict) -> str:
     parties_str = ", ".join(parties) or inst
     n_banks = max(1, len(parties))
     n_days = max(1, case_view.get("timespan_days") or 1)
-    
+
     current_date = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
 
     return (
