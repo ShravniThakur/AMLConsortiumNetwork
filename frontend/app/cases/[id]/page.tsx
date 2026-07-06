@@ -9,10 +9,27 @@ import dynamic from "next/dynamic";
 const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), { ssr: false });
 
 const DECISIONS = [
-  { key: "file", label: "File STR", cls: "bg-mint hover:bg-mint-hover text-gray-400 shadow-lg shadow-mint/20 border-mint" },
-  { key: "escalate", label: "Escalate", cls: "bg-gold hover:bg-gold-hover text-gray-400 shadow-lg shadow-gold/20 border-gold" },
-  { key: "dismiss", label: "Dismiss", cls: "bg-midnight-card hover:bg-midnight-border text-gray-400 border-midnight-border" },
+  { key: "file",     label: "File SAR",  style: { background: "#3cb371", color: "#fff", border: "1.5px solid #267a4e" } },
+  { key: "escalate", label: "Escalate",  style: { background: "#c8a84b", color: "#fff", border: "1.5px solid #8a7030" } },
+  { key: "dismiss",  label: "Dismiss",   style: { background: "#fff",    color: "#6b6b70", border: "1.5px solid #e8e5e0" } },
 ];
+
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div
+      className={`rounded-2xl p-6 ${className}`}
+      style={{ background: "#fff", boxShadow: "0 2px 12px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04)" }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="text-[10px] font-bold uppercase tracking-widest text-[#9b9896] mb-3">{children}</div>
+  );
+}
 
 export default function CasePage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -22,6 +39,7 @@ export default function CasePage({ params }: { params: { id: string } }) {
   const [officer, setOfficer] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [msgType, setMsgType] = useState<"success" | "error">("success");
 
   const load = useCallback(() => {
     if (!institution) return;
@@ -36,166 +54,215 @@ export default function CasePage({ params }: { params: { id: string } }) {
 
   useEffect(() => {
     const inst = localStorage.getItem("acn_institution");
-    if (!inst) {
-      router.push("/login");
-      return;
-    }
+    if (!inst) { router.push("/login"); return; }
     setInstitution(inst);
   }, [router]);
 
-  useEffect(() => {
-    if (institution) {
-      load();
-    }
-  }, [load, institution]);
+  useEffect(() => { if (institution) load(); }, [load, institution]);
 
   async function onDecide(decision: string) {
     if (!officer.trim()) {
       setMsg("Enter the reviewing officer's name first.");
+      setMsgType("error");
       return;
     }
     try {
       await decide(params.id, decision, officer.trim());
-      setMsg(`Recorded: ${decision}.`);
+      setMsg(`✓ Decision recorded: ${decision}.`);
+      setMsgType("success");
       load();
     } catch (e) {
       setMsg(`Failed: ${e}`);
+      setMsgType("error");
     }
   }
 
-  if (error)
-    return (
-      <div className="rounded border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">
-        {error}. <Link href="/" className="underline">Back to queue</Link>
+  if (error) return (
+    <div className="px-7 py-7">
+      <div className="rounded-xl border border-[#f0b0b0] bg-[#fdeaea] px-4 py-3 text-sm text-[#b03a3a]">
+        {error}. <Link href="/" className="underline font-semibold">← Back to queue</Link>
       </div>
-    );
-  if (!data) return <p className="text-sm text-slate-500">Loading…</p>;
+    </div>
+  );
+
+  if (!data) return (
+    <div className="flex items-center justify-center h-64 text-sm text-[#9b9896]">
+      <svg className="animate-spin h-5 w-5 mr-2 text-[#c8a84b]" fill="none" viewBox="0 0 24 24">
+        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+      </svg>
+      Loading case…
+    </div>
+  );
+
+  const scoreColor = (data.score ?? 0) >= 0.8 ? "#e05252" : (data.score ?? 0) >= 0.5 ? "#c8a84b" : "#3cb371";
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="px-7 py-7 fade-in-up space-y-5 mr-4">
+
+      {/* Top row: back + title */}
+      <div className="flex items-start justify-between">
         <div>
-          <Link href="/" className="text-sm text-sky-300 hover:underline">
-            ← Alert queue
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#9b9896] hover:text-[#c8a84b] transition-colors mb-2"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
+            Alert Queue
           </Link>
-          <h1 className="mt-1 text-3xl font-bold tracking-wider uppercase text-white">
+          <h1 className="text-2xl font-black text-[#1c1c1e] tracking-tight capitalize">
             {data.pattern.replace(/_/g, " ")}
           </h1>
-          <p className="mt-2 text-sm text-gray-400 font-medium">
-            Model score <span className="tabular-nums text-gold font-bold">{data.score?.toFixed(2)}</span>{" "}
-            · status <span className="text-gray-200 uppercase tracking-wider">{data.status}</span> · involves{" "}
-            {data.institutions.join(", ")}
-          </p>
+          <div className="flex items-center gap-3 mt-2 text-xs text-[#9b9896] font-medium">
+            <span>
+              Score:{" "}
+              <span className="font-black" style={{ color: scoreColor }}>
+                {data.score?.toFixed(2)}
+              </span>
+            </span>
+            <span className="text-[#d1cec9]">·</span>
+            <span className="uppercase font-semibold">{data.status}</span>
+            <span className="text-[#d1cec9]">·</span>
+            <span>{data.institutions.join(", ")}</span>
+          </div>
         </div>
-        <div className="flex flex-col items-end gap-1">
-          <label className="text-xs text-gray-400 font-bold uppercase tracking-wider">Viewing as</label>
-          <span className="rounded-lg border border-gold/40 bg-gold/5 px-4 py-2 text-sm font-bold uppercase tracking-wider text-gold shadow-lg">
-            {institution}
-          </span>
+        <div
+          className="flex flex-col items-end gap-1 rounded-xl px-4 py-3"
+          style={{ background: "#fff", boxShadow: "0 2px 8px rgba(0,0,0,0.06)", border: "1.5px solid #e8e5e0" }}
+        >
+          <div className="text-[10px] font-bold uppercase tracking-widest text-[#9b9896]">Viewing as</div>
+          <div className="text-sm font-bold text-[#c8a84b] uppercase tracking-wide">{institution}</div>
         </div>
       </div>
 
-      <section className="rounded-2xl border-2 border-mint-dark bg-mint p-6 shadow-xl">
-        <h2 className="mb-2 text-base font-black uppercase tracking-wider text-midnight/70">Why it was flagged</h2>
-        <p className="text-base leading-relaxed text-midnight font-medium">
-          {data.evidence_text || "See evidence subgraph."}
+      {/* Why flagged */}
+      <Card>
+        <SectionLabel>Why it was flagged</SectionLabel>
+        <p className="text-sm leading-relaxed text-[#3a3a3e]">
+          {data.evidence_text || "See evidence subgraph below."}
         </p>
-      </section>
+      </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-stretch">
-        <section className="rounded-2xl border border-midnight-border bg-midnight-card/80 p-6 shadow-xl flex flex-col h-full max-h-[450px]">
-          <h2 className="mb-4 text-base font-bold uppercase tracking-wider text-white flex-shrink-0">
-            Evidence graph nodes ({data.accounts.length})
-          </h2>
-          <div className="flex-1 min-h-0 overflow-y-auto pr-2 custom-scrollbar">
-            <ul className="space-y-2">
-              {data.accounts.map((a, idx) => (
-                <li
-                  key={idx}
-                  className="flex items-center justify-between rounded-lg border border-midnight-border bg-midnight px-4 py-3 hover:border-gold/30 transition-colors"
-                >
-                  <span className="font-mono text-base">
-                    {a.account_id ? (
-                      <span className="text-mint font-bold">{a.account_id}</span>
-                    ) : (
-                      <span className="text-gray-400">{a.hash.slice(0, 16)}…</span>
-                    )}
-                  </span>
-                  <span className="text-sm font-medium uppercase tracking-wider text-gray-400">
-                    {a.institution ?? "unidentified"}
-                    {a.account_id ? " · your account" : " · pseudonymised"}
-                  </span>
-                </li>
-              ))}
-            </ul>
+      {/* Accounts + Draft SAR */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Evidence nodes */}
+        <Card className="flex flex-col max-h-[420px]">
+          <SectionLabel>Evidence Graph Nodes ({data.accounts.length})</SectionLabel>
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
+            {data.accounts.map((a, idx) => (
+              <div
+                key={idx}
+                className="flex items-center justify-between rounded-xl px-4 py-3 transition-colors"
+                style={{ background: "#f8f7f4", border: "1px solid #eeebe5" }}
+              >
+                <span className="font-mono text-sm">
+                  {a.account_id ? (
+                    <span className="font-bold text-[#3cb371]">{a.account_id}</span>
+                  ) : (
+                    <span className="text-[#9b9896]">{a.hash.slice(0, 16)}…</span>
+                  )}
+                </span>
+                <span className="text-xs font-medium text-[#9b9896]">
+                  {a.institution ?? "unidentified"}
+                  {a.account_id ? " · your account" : " · pseudonymised"}
+                </span>
+              </div>
+            ))}
           </div>
-        </section>
+        </Card>
 
-        <section className="rounded-2xl border border-midnight-border bg-midnight-card/80 p-6 shadow-xl relative overflow-hidden flex flex-col h-full max-h-[450px]">
-          {/* Subtle mint glow in corner of draft area */}
-          <div className="absolute top-0 right-0 h-32 w-32 rounded-full bg-mint/5 blur-3xl pointer-events-none" />
-          
-          <div className="mb-4 flex items-center justify-between relative z-10 flex-shrink-0">
-            <h2 className="text-base font-bold uppercase tracking-wider text-white">Draft SAR Report</h2>
-            <span className="rounded-full bg-gold/10 px-3 py-1 text-sm font-bold uppercase tracking-wider text-gold border border-gold/30">
-              requires human review
+        {/* Draft SAR */}
+        <Card className="flex flex-col max-h-[420px]">
+          <div className="flex items-center justify-between mb-3">
+            <SectionLabel>Draft SAR Report</SectionLabel>
+            <span
+              className="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-widest"
+              style={{ background: "#fdf6e3", color: "#8a7030", border: "1px solid #e9d98a" }}
+            >
+              Requires human review
             </span>
           </div>
           <textarea
             value={narrative}
             onChange={(e) => setNarrative(e.target.value)}
             rows={10}
-            className="flex-1 relative z-10 w-full rounded-xl border border-midnight-border bg-midnight p-4 font-mono text-base leading-relaxed text-gray-300 focus:border-mint focus:outline-none focus:ring-1 focus:ring-mint resize-y custom-scrollbar"
+            className="flex-1 w-full rounded-xl p-4 font-mono text-sm leading-relaxed text-[#3a3a3e] focus:outline-none resize-none transition-all"
+            style={{
+              background: "#f8f7f4",
+              border: "1.5px solid #e8e5e0",
+            }}
+            onFocus={(e) => { e.currentTarget.style.border = "1.5px solid #c8a84b"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(200,168,75,0.12)"; }}
+            onBlur={(e) => { e.currentTarget.style.border = "1.5px solid #e8e5e0"; e.currentTarget.style.boxShadow = "none"; }}
           />
-          <p className="mt-3 text-sm text-gray-400 relative z-10 flex-shrink-0">
-            Machine-generated draft ({data.draft_str?.source}). Verify facts and add KYC context
-            before any filing decision.
+          <p className="mt-2 text-xs text-[#9b9896]">
+            Machine-generated draft ({data.draft_str?.source}). Verify facts and add KYC context before any filing decision.
           </p>
-        </section>
+        </Card>
       </div>
 
+      {/* Network Topology */}
       {data.topology && data.topology.nodes.length > 0 && (
-        <section className="rounded-2xl border border-midnight-border bg-midnight-card/80 p-6 shadow-xl flex flex-col">
-          <h2 className="mb-4 text-base font-bold uppercase tracking-wider text-white flex-shrink-0">
-            Network Topology
-          </h2>
-          <div className="w-full h-[400px] border border-midnight-border rounded-lg overflow-hidden bg-midnight flex items-center justify-center">
+        <Card>
+          <SectionLabel>Network Topology</SectionLabel>
+          <div
+            className="w-full h-[380px] rounded-xl overflow-hidden"
+            style={{ background: "#1c1c1e" }}
+          >
             <ForceGraph2D
               graphData={{
-                nodes: data.topology.nodes.map(n => ({ ...n })),
-                links: data.topology.edges.map(e => ({ ...e }))
+                nodes: data.topology.nodes.map((n) => ({ ...n })),
+                links: data.topology.edges.map((e) => ({ ...e })),
               }}
               nodeId="id"
-              nodeLabel={(n: any) => n.group === institution ? `Your Account: ${n.id}` : `External: ${n.id.substring(0,8)}...`}
-              nodeColor={(n: any) => n.group === institution ? "#d4af37" : "#4b5563"}
-              linkColor={() => "#2a2e3a"}
-              backgroundColor="#0b0d14"
-              width={1000} // ForceGraph often needs explicit bounds, we'll let it auto-size if possible but can provide fallback
+              nodeLabel={(n: any) =>
+                n.group === institution
+                  ? `Your Account: ${n.id}`
+                  : `External: ${n.id.substring(0, 8)}...`
+              }
+              nodeColor={(n: any) => (n.group === institution ? "#c8a84b" : "#4b5563")}
+              linkColor={() => "#2e2e32"}
+              backgroundColor="#1c1c1e"
             />
           </div>
-        </section>
+        </Card>
       )}
 
-      <section className="rounded-2xl border border-midnight-border bg-midnight-card/80 p-6 shadow-xl">
-        <div className="flex flex-wrap items-center gap-4">
+      {/* Decision panel */}
+      <Card>
+        <SectionLabel>Record Decision</SectionLabel>
+        <div className="flex flex-wrap items-center gap-3">
           <input
             value={officer}
             onChange={(e) => setOfficer(e.target.value)}
-            placeholder="Reviewing officer"
-            className="rounded-lg border border-midnight-border bg-midnight px-4 py-2.5 text-sm text-white focus:border-mint focus:outline-none focus:ring-1 focus:ring-mint"
+            placeholder="Reviewing officer name"
+            className="rounded-xl px-4 py-2.5 text-sm text-[#1c1c1e] focus:outline-none transition-all"
+            style={{ background: "#f8f7f4", border: "1.5px solid #e8e5e0", minWidth: "200px" }}
+            onFocus={(e) => { e.currentTarget.style.border = "1.5px solid #c8a84b"; }}
+            onBlur={(e) => { e.currentTarget.style.border = "1.5px solid #e8e5e0"; }}
           />
           {DECISIONS.map((d) => (
             <button
               key={d.key}
+              id={`decision-${d.key}`}
               onClick={() => onDecide(d.key)}
-              className={`rounded-lg border px-6 py-2.5 text-sm font-bold uppercase tracking-wider transition-all hover:scale-[1.02] ${d.cls}`}
+              className="rounded-xl px-5 py-2.5 text-sm font-bold uppercase tracking-wider transition-all hover:opacity-85 hover:scale-[1.02]"
+              style={d.style}
             >
               {d.label}
             </button>
           ))}
-          {msg && <span className="text-sm text-slate-400">{msg}</span>}
+          {msg && (
+            <span
+              className="text-xs font-semibold"
+              style={{ color: msgType === "success" ? "#3cb371" : "#e05252" }}
+            >
+              {msg}
+            </span>
+          )}
         </div>
-      </section>
+      </Card>
     </div>
   );
 }

@@ -1,7 +1,120 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-body {
-  @apply bg-midnight text-gray-300 antialiased;
+*, *::before, *::after {
+  box-sizing: border-box;
 }
+
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #f0efeb;
+  color: #1c1c1e;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #d1cec9;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #b8b5af;
+}
+
+/* Sidebar scrollbar */
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: #3a3a3d;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: #4a4a4e;
+}
+
+/* Animated underline for active nav */
+.nav-active-indicator {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 60%;
+  background: #c8a84b;
+  border-radius: 0 3px 3px 0;
+}
+
+/* Card hover lift */
+.card-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.10), 0 3px 8px rgba(0,0,0,0.06);
+}
+
+/* Score bar pulse */
+@keyframes score-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+.score-critical {
+  animation: score-pulse 2s ease-in-out infinite;
+}
+
+/* Table row hover */
+.alert-row {
+  transition: background-color 0.15s ease;
+}
+.alert-row:hover {
+  background-color: #f8f7f4;
+}
+
+/* Status badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.badge-open    { background: #fdf6e3; color: #8a7030; border: 1px solid #e9d98a; }
+.badge-escalated { background: #fdeaea; color: #b03a3a; border: 1px solid #f0b0b0; }
+.badge-filed   { background: #e8f5ee; color: #267a4e; border: 1px solid #a0d4b8; }
+.badge-dismissed { background: #f0efeb; color: #6b6b70; border: 1px solid #d1cec9; }
+
+/* Fade in animation */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in-up {
+  animation: fade-in-up 0.35s ease both;
+}
+
+/* Stagger children */
+.stagger-children > * {
+  animation: fade-in-up 0.35s ease both;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0.05s; }
+.stagger-children > *:nth-child(2) { animation-delay: 0.10s; }
+.stagger-children > *:nth-child(3) { animation-delay: 0.15s; }
+.stagger-children > *:nth-child(4) { animation-delay: 0.20s; }
+.stagger-children > *:nth-child(5) { animation-delay: 0.25s; }
