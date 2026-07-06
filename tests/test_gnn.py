@@ -8,11 +8,9 @@ training sanity check. Feature constants live in acn.gnn.features.
 from __future__ import annotations
 
 import numpy as np
-import pandas as pd
 import pytest
 
 from acn.gnn import metrics
-
 
 
 def test_recall_at_fpr_and_auc():
@@ -55,7 +53,7 @@ def test_centralized_training_learns_a_separable_signal():
     x = torch.zeros(n, IN_DIM)
     x[:, 1] = y * 5 + torch.randn(n) * 0.1  # signal in one feature column
     ei = torch.stack([torch.arange(n_edges), torch.arange(1, n)])
-    ea = torch.zeros(n_edges, EDGE_DIM)       # zero edge features (neutral baseline)
+    ea = torch.zeros(n_edges, EDGE_DIM)  # zero edge features (neutral baseline)
     mask = torch.zeros(n, dtype=torch.bool)
     mask[: n // 2] = True
 

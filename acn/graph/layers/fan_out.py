@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Layer 6 — fan-out / scatter dispersion.
 
 One of the AMLSim laundering topologies the other five layers don't cover: an account **receives**
@@ -20,13 +21,13 @@ DEFAULT_MIN_FANOUT = 5  # scatter to at least this many distinct destinations
 CYPHER = """
 MATCH (src:Account)-[out:SENT]->(dst:Account)
 WHERE out.timestamp >= $window_start AND out.timestamp <= $window_end
-WITH src, collect(DISTINCT dst) AS dsts, min(out.timestamp) as min_out, max(out.timestamp) as max_out
+WITH src, collect(DISTINCT dst) AS dsts, min(out.timestamp) as min_out, max(out.timestamp) as max_out  # noqa: E501
 WHERE size(dsts) >= $min_fanout
 MATCH (funder:Account)-[in:SENT]->(src)
 WHERE in.timestamp >= $window_start AND in.timestamp <= $window_end
-WITH src, dsts, min_out, max_out, count(DISTINCT funder) AS n_funders, min(in.timestamp) as min_in, max(in.timestamp) as max_in
+WITH src, dsts, min_out, max_out, count(DISTINCT funder) AS n_funders, min(in.timestamp) as min_in, max(in.timestamp) as max_in  # noqa: E501
 WHERE n_funders >= 1
-WITH [src] + dsts AS ns, src, size(dsts) AS fanout, n_funders, CASE WHEN min_in < min_out THEN min_in ELSE min_out END as min_ts, CASE WHEN max_in > max_out THEN max_in ELSE max_out END as max_ts
+WITH [src] + dsts AS ns, src, size(dsts) AS fanout, n_funders, CASE WHEN min_in < min_out THEN min_in ELSE min_out END as min_ts, CASE WHEN max_in > max_out THEN max_in ELSE max_out END as max_ts  # noqa: E501
 RETURN [n IN ns | n.hash] AS nodes,
        [n IN ns WHERE n.institution_id IS NOT NULL | n.institution_id] AS insts,
        src.hash AS focus, fanout AS fanout, n_funders AS n_funders,

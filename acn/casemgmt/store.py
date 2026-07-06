@@ -41,7 +41,9 @@ RETURN al.alert_id AS alert_id, al.case_status AS status
 _STATUS_FOR = {"file": "filed", "dismiss": "dismissed", "escalate": "escalated"}
 
 
-def list_cases(driver, status: str | None = None, institution: str | None = None, limit: int = 50) -> list[dict]:
+def list_cases(
+    driver, status: str | None = None, institution: str | None = None, limit: int = 50
+) -> list[dict]:
     """List cases (alerts) as summaries, optionally filtered by lifecycle status."""
     with driver.session() as s:
         return s.run(_LIST, status=status, institution=institution, limit=limit).data()

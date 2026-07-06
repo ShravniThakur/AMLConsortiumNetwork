@@ -12,7 +12,6 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 
-
 DEFAULT_TARGET_ROWS = 310_000
 SAMPLE_SEED = 42  # fixed so the ~310K sample is reproducible before partitioning
 
@@ -106,7 +105,6 @@ def chain_preserving_sample(
 
     out = pd.concat([selected_laundering, sampled_bg]).sort_values("timestamp")
     return out.reset_index(drop=True)
-
 
 
 def _chain_account_counts(laund: pd.DataFrame) -> dict[int, int]:

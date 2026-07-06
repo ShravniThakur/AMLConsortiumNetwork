@@ -14,7 +14,7 @@ Detection-time feature reconstruction mirrors training exactly:
 from __future__ import annotations
 
 import math
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import numpy as np
 
@@ -23,8 +23,8 @@ from ..pseudonymise import buckets
 
 CHECKPOINT = "acn-data/models/gnn/multigraph_final.pt"
 
-_FEATURES = feat_schema.SCALAR_FEATURES   # fixed node feature column order
-_N_BUCKETS = buckets.N_BUCKETS            # 10
+_FEATURES = feat_schema.SCALAR_FEATURES  # fixed node feature column order
+_N_BUCKETS = buckets.N_BUCKETS  # 10
 
 # log1p(bucket_10_midpoint) ≈ log1p(7_500_000) ≈ 15.83 — divisor for edge midpoint normalisation.
 _LOG_MID_SCALE = math.log1p(buckets.bucket_midpoint("bucket_10"))
@@ -84,9 +84,9 @@ def _edge_features(
     normalisation step for edge features.
     """
     mid = buckets.bucket_midpoint(bucket)
-    bucket_mid_norm = math.log1p(mid) / _LOG_MID_SCALE          # ∈ (0, 1]
+    bucket_mid_norm = math.log1p(mid) / _LOG_MID_SCALE  # ∈ (0, 1]
     near_threshold = 1.0 if proximity == "high" else 0.0
-    time_delta = max(ts - window_start, 0) / 86400.0 / 365.0    # ∈ [0, ~1] over a year
+    time_delta = max(ts - window_start, 0) / 86400.0 / 365.0  # ∈ [0, ~1] over a year
 
     # One-hot over the 10 fixed buckets: bucket_N → index N-1.
     try:
@@ -147,7 +147,7 @@ def reconstruct_features(
         si, di = idx[s], idx[d]
 
         # Temporal features
-        dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+        dt = datetime.fromtimestamp(ts, tz=UTC)
         is_night = 1.0 if dt.hour < 6 or dt.hour > 22 else 0.0
         is_weekend = 1.0 if dt.weekday() >= 5 else 0.0
 
@@ -207,12 +207,12 @@ def reconstruct_features(
         rows[i, col["in_degree"]] = in_deg.get(i, 0)
         rows[i, col["out_degree"]] = txn_count
         if i in out_hist:
-            rows[i, len(_FEATURES):] = out_hist[i]
+            rows[i, len(_FEATURES) :] = out_hist[i]
 
     # Edge index and edge attributes
     if edge_pairs:
-        edge_index = np.asarray(edge_pairs, dtype=np.int64).T          # [2, E]
-        edge_attr = np.asarray(edge_feats, dtype=float)                 # [E, 13]
+        edge_index = np.asarray(edge_pairs, dtype=np.int64).T  # [2, E]
+        edge_attr = np.asarray(edge_feats, dtype=float)  # [E, 13]
     else:
         edge_index = np.zeros((2, 0), dtype=np.int64)
         edge_attr = np.zeros((0, feat_schema.N_EDGE_FEATURES), dtype=float)

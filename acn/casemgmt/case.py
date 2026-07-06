@@ -30,9 +30,9 @@ def assemble_case(driver, alert_id: str) -> dict | None:
         rec = session.run(_CASE_QUERY, alert_id=alert_id).single()
     if rec is None or not rec["accounts"]:
         return None
-        
+
     edges = [e for e in rec["edges"] if e["source"] and e["target"]]
-        
+
     return {
         "alert_id": alert_id,
         "pattern": rec["pattern"],
@@ -54,14 +54,16 @@ def resolve_for(r, case: dict, institution: str) -> dict:
     This is the per-institution view a filing officer at ``institution`` works from.
     """
     view = dict(case)
-    
+
     # Expose the raw, hashed topology for visual graph rendering. No real account IDs are here.
     view["topology"] = {
-        "nodes": [{"id": a["hash"], "group": a["institution"] or "unknown"} for a in case["accounts"]],
-        "edges": case.get("edges", [])
+        "nodes": [
+            {"id": a["hash"], "group": a["institution"] or "unknown"} for a in case["accounts"]
+        ],
+        "edges": case.get("edges", []),
     }
     view.pop("edges", None)
-    
+
     accounts = []
     for a in case["accounts"]:
         if a["institution"] == institution:

@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Layer 1 — sliding-window layering hop.
 
 A node that **receives then rapidly forwards** funds within a short window is the classic
@@ -19,7 +20,7 @@ WHERE s.timestamp >= $window_start AND s.timestamp <= $window_end
   AND r.timestamp >= s.timestamp
   AND r.timestamp - s.timestamp <= $window_seconds
   AND src.hash <> dst.hash AND src.hash <> mid.hash AND mid.hash <> dst.hash
-WITH mid, collect(DISTINCT src) AS srcs, collect(DISTINCT dst) AS dsts, min(s.timestamp) AS min_ts, max(r.timestamp) AS max_ts
+WITH mid, collect(DISTINCT src) AS srcs, collect(DISTINCT dst) AS dsts, min(s.timestamp) AS min_ts, max(r.timestamp) AS max_ts  # noqa: E501
 WITH [mid] + srcs + dsts AS ns, mid, size(srcs) + size(dsts) AS fan, min_ts, max_ts
 RETURN [n IN ns | n.hash] AS nodes,
        [n IN ns WHERE n.institution_id IS NOT NULL | n.institution_id] AS insts,

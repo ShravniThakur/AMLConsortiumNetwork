@@ -40,13 +40,13 @@ SCALAR_FEATURES = [
 #   bucket_onehot (10 dims) → categorical treatment of the amount bucket
 # Append-only — changing order breaks saved multigraph checkpoints.
 EDGE_FEATURE_NAMES = [
-    "edge_bucket_midpoint",   # log1p(midpoint) / 16.0 — normalised log-amount proxy
-    "edge_near_threshold",    # 1.0 if threshold_proximity == "high" else 0.0
-    "edge_time_delta_days",   # (ts - window_start) / 365.0 — position in the window
-    "edge_time_since_prev_days", # (ts - prev_ts) / 1.0 days — burst velocity
-    "edge_is_night",          # 1.0 if UTC hour < 6 or > 22
-    "edge_is_weekend",        # 1.0 if Saturday/Sunday
-    "edge_is_round_amount",   # 1.0 if raw amount % 10000 == 0
+    "edge_bucket_midpoint",  # log1p(midpoint) / 16.0 — normalised log-amount proxy
+    "edge_near_threshold",  # 1.0 if threshold_proximity == "high" else 0.0
+    "edge_time_delta_days",  # (ts - window_start) / 365.0 — position in the window
+    "edge_time_since_prev_days",  # (ts - prev_ts) / 1.0 days — burst velocity
+    "edge_is_night",  # 1.0 if UTC hour < 6 or > 22
+    "edge_is_weekend",  # 1.0 if Saturday/Sunday
+    "edge_is_round_amount",  # 1.0 if raw amount % 10000 == 0
     # One-hot: which of the 10 fixed amount buckets does this edge belong to?
     "edge_bucket_1",
     "edge_bucket_2",

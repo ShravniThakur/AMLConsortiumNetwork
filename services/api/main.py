@@ -59,16 +59,16 @@ def health() -> JSONResponse:
     logger.info("health.checked", extra={"status": body["status"], **report})
     return JSONResponse(content=body, status_code=status_code)
 
+
 @app.post("/pipeline/run")
 def run_pipeline() -> JSONResponse:
     """Run the pipeline end to end in the background."""
     import subprocess
-    
+
     # Run the script in the background
     subprocess.Popen(
-        ["bash", "scripts/run_pipeline_e2e.sh"], 
-        cwd=os.path.join(os.path.dirname(__file__), "../..")
+        ["bash", "scripts/run_pipeline_e2e.sh"],
+        cwd=os.path.join(os.path.dirname(__file__), "../.."),
     )
-    
-    return JSONResponse(content={"status": "Pipeline started in the background"}, status_code=202)
 
+    return JSONResponse(content={"status": "Pipeline started in the background"}, status_code=202)

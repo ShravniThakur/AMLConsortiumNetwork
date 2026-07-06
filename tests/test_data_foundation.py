@@ -347,7 +347,6 @@ def test_dst_institution_is_owning_institution_of_to_bank():
     assert row["dst_institution"] == "INST_B"
 
 
-
 # ---------------------------------------------------------------------- non-IID
 def test_non_iid_partitions_have_divergent_distributions():
     # INST_A: small amounts, low fraud; INST_E: large amounts, high fraud.

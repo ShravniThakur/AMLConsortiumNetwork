@@ -31,11 +31,7 @@ from ..graph import chain_features
 from . import features
 
 # Input dimensions (node and edge feature widths).
-IN_DIM = (
-    len(features.SCALAR_FEATURES)
-    + features.N_BUCKETS
-    + chain_features.N_CHAIN_FEATURES
-)
+IN_DIM = len(features.SCALAR_FEATURES) + features.N_BUCKETS + chain_features.N_CHAIN_FEATURES
 EDGE_DIM = features.N_EDGE_FEATURES  # 13
 HIDDEN_DIM = 64
 LAUNDERING_POS_WEIGHT = 200.0
@@ -116,8 +112,7 @@ class DirMultigraphSAGE(nn.Module):
     ) -> None:
         super().__init__()
         self.convs = nn.ModuleList(
-            DirMultigraphConv(in_dim if i == 0 else hidden, edge_dim, hidden)
-            for i in range(layers)
+            DirMultigraphConv(in_dim if i == 0 else hidden, edge_dim, hidden) for i in range(layers)
         )
         self.head = nn.Linear(hidden, 1)
 

@@ -53,4 +53,4 @@ INSTITUTIONS = ["INST_A", "INST_B", "INST_C", "INST_D", "INST_E"]
 # In a normal pipeline run these are never used — the window is always derived from actual edge
 # timestamps in Neo4j. The full-year range matches the IBM LI-Medium dataset used for training.
 DETECT_START = "2022-01-01"  # start of the IBM LI-Medium dataset
-DETECT_END = "2022-12-31"    # end of the IBM LI-Medium dataset
+DETECT_END = "2022-12-31"  # end of the IBM LI-Medium dataset

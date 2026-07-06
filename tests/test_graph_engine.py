@@ -74,7 +74,15 @@ def test_alert_build_is_pseudonymised_and_deterministic():
     assert a1["evidence"] == ["ha", "hb"]  # sorted
     assert a1["recipients"] == ["INST_A"]
     # only pseudonymised fields — no raw id/amount anywhere
-    assert set(a1) == {"alert_id", "pattern", "score", "recipients", "evidence", "created_ts", "timespan_days"}
+    assert set(a1) == {
+        "alert_id",
+        "pattern",
+        "score",
+        "recipients",
+        "evidence",
+        "created_ts",
+        "timespan_days",
+    }
 
 
 def test_alert_emit_guards_against_no_evidence():

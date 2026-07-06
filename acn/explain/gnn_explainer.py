@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """GNNExplainer over the DirMultigraphSAGE model.
 
 For an alerted node, answer **what drove its laundering score** — which incoming transactions
@@ -24,7 +25,7 @@ from ..graph import score as graph_score
 DEFAULT_EPOCHS = 100  # GNNExplainer mask-optimisation steps (recorded in explain_report.md)
 NUM_HOPS = 2  # matches the 2 SAGEConv layers — the node's full receptive field
 
-# Human-facing feature names in the model's column order (scalars + the 10 amount-bucket bins + chain features).
+# Human-facing feature names in the model's column order (scalars + the 10 amount-bucket bins + chain features).  # noqa: E501
 FEATURE_NAMES = (
     list(graph_score._FEATURES)
     + [f"amount_bucket_{i}" for i in range(1, features.N_BUCKETS + 1)]
@@ -82,6 +83,7 @@ def explain_node(
         ea_full = torch.tensor(edge_attr, dtype=torch.float)
     else:
         from ..gnn.features import N_EDGE_FEATURES
+
         ea_full = torch.zeros(ei.shape[1], N_EDGE_FEATURES)
 
     subset, sub_ei, mapping, edge_mask_idx = k_hop_subgraph(

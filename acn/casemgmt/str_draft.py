@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 """Draft a Suspicious Transaction Report (STR) narrative from a case.
 
 The draft is a **starting point for a human**, never a filing: ``draft`` always returns
@@ -49,8 +50,8 @@ def render_template(case_view: dict) -> str:
         f"DRAFT SUSPICIOUS TRANSACTION REPORT — for review by the Principal Officer\n"
         f"Reporting institution: {inst}\n"
         f"Alert reference: {case_view.get('alert_id', '')}\n\n"
-        f"Summary: automated cross-institution monitoring flagged {desc} layering across {n_banks} banks over {n_days} days "
-        f"(model score {float(case_view.get('score', 0.0)):.2f}). The activity spans: {parties_str}.\n\n"
+        f"Summary: automated cross-institution monitoring flagged {desc} layering across {n_banks} banks over {n_days} days "  # noqa: E501
+        f"(model score {float(case_view.get('score', 0.0)):.2f}). The activity spans: {parties_str}.\n\n"  # noqa: E501
         f"Accounts in the evidence subgraph:\n{lines}\n\n"
         f"Basis for suspicion: "
         f"{case_view.get('evidence_text') or 'see attached evidence subgraph.'}\n\n"

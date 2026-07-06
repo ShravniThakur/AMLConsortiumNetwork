@@ -93,7 +93,7 @@ def test_gnnexplainer_highlights_laundering_hops():
     import torch
 
     from acn.explain import gnn_explainer as gx
-    from acn.gnn.model import EDGE_DIM, IN_DIM, DirMultigraphSAGE
+    from acn.gnn.model import EDGE_DIM, DirMultigraphSAGE
     from acn.graph import score as gs
 
     torch.manual_seed(0)
