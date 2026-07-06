@@ -68,15 +68,17 @@ CASE_ROW = {
     "recipients": ["INST_A", "INST_B"],
     "created_ts": 1_726_000_000,
     "evidence_text": "funds returned via intermediaries",
+    "timespan_days": 3,
     "accounts": [
         {"hash": "hA", "institution": "INST_A"},
         {"hash": "hB", "institution": "INST_B"},
     ],
+    "edges": [{"source": "hA", "target": "hB"}],
 }
 
 
 def _responder(query, kw):
-    if "collect({hash" in query:  # assemble_case
+    if "WITH al, collect(DISTINCT n) AS nodes" in query:  # assemble_case
         return [CASE_ROW] if kw.get("alert_id") == "known" else []
     if "coalesce(al.case_status" in query:  # list_cases
         return [
@@ -126,7 +128,7 @@ def test_get_case_owner_resolution_and_draft(client):
     body = r.json()
     by_inst = {a["institution"]: a for a in body["accounts"]}
     assert by_inst["INST_A"]["account_id"] == "real-A"  # own account resolved
-    assert "account_id" not in by_inst["INST_B"]  # other bank stays hash-only
+    assert "INST_B" not in by_inst  # other bank completely omitted for privacy
     assert body["draft_str"]["filed"] is False
     assert "real-A" in body["draft_str"]["narrative"]
 

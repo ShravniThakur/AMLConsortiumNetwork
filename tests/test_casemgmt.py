@@ -97,7 +97,7 @@ def test_resolve_for_only_resolves_own_accounts():
     by_inst = {a["institution"]: a for a in view["accounts"]}
     assert view["viewing_institution"] == "INST_A"
     assert by_inst["INST_A"]["account_id"] == "real-A"  # own account resolved
-    assert "account_id" not in by_inst["INST_B"]  # other bank stays hash-only
+    assert "INST_B" not in by_inst  # other bank completely omitted for privacy
 
 
 # ------------------------------------------------------------------------------- draft STR
