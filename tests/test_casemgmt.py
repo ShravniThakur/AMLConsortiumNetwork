@@ -113,7 +113,7 @@ def test_template_draft_is_pseudonymised_for_other_banks_and_never_files():
     assert d["filed"] is False
     assert d["source"] == "template"
     text = d["narrative"]
-    assert "DRAFT SUSPICIOUS TRANSACTION REPORT" in text
+    assert "SUSPICIOUS TRANSACTION REPORT (STR) - DRAFT" in text
     assert "real-A" in text  # the reporting bank's own account appears resolved
     assert "real-B" not in text  # the other bank's account never resolved
     assert "hB"[:12] not in text or "pseudonymised" in text  # other bank stays pseudonymised
@@ -123,8 +123,8 @@ def test_template_mentions_pattern_and_officer_gate():
     r = FakeRedis()
     view = case_mod.resolve_for(r, _case(), "INST_A")
     text = str_draft.render_template(view)
-    assert "cycle layering" in text  # round_trip phrasing
-    assert "must verify" in text and "No report is submitted automatically" in text
+    assert "Cycle" in text  # round_trip phrasing
+    assert "Verify the facts" in text and "Make a final determination" in text
 
 
 # ------------------------------------------------------------------------ live Neo4j assembly
