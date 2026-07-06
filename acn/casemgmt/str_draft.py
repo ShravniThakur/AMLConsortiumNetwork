@@ -48,7 +48,7 @@ def render_template(case_view: dict) -> str:
     n_banks = max(1, len(parties))
     n_days = max(1, case_view.get("timespan_days") or 1)
 
-    current_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    current_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")  # noqa: UP017
 
     return (
         f"SUSPICIOUS TRANSACTION REPORT (STR) - DRAFT\n"
