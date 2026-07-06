@@ -26,6 +26,10 @@ export type DraftStr = {
   source: string;
 };
 
+export type TopologyNode = { id: string; group: string };
+export type TopologyEdge = { source: string; target: string };
+export type Topology = { nodes: TopologyNode[]; edges: TopologyEdge[] };
+
 export type CaseDetail = {
   alert_id: string;
   pattern: string;
@@ -37,6 +41,7 @@ export type CaseDetail = {
   status: string;
   viewing_institution?: string;
   draft_str?: DraftStr;
+  topology?: Topology;
 };
 
 async function json<T>(res: Response): Promise<T> {
@@ -44,8 +49,11 @@ async function json<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
-export async function listCases(status?: string): Promise<CaseSummary[]> {
-  const q = status ? `?status=${encodeURIComponent(status)}` : "";
+export async function listCases(status?: string, institution?: string): Promise<CaseSummary[]> {
+  const params = new URLSearchParams();
+  if (status) params.set("status", status);
+  if (institution) params.set("institution", institution);
+  const q = params.toString() ? `?${params.toString()}` : "";
   const data = await json<{ cases: CaseSummary[] }>(await fetch(`${BASE}/cases${q}`, { cache: "no-store" }));
   return data.cases;
 }
