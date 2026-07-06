@@ -141,12 +141,12 @@ export default function Dashboard() {
                 +1.5x Detection
               </span>
             </div>
-            <p className="text-xs text-gray-400 font-medium">
+            <p className="text-xs text-midnight-card font-medium">
               Federated graph analytics boosted recall from <span className="font-bold text-midnight">37.1%</span> to <span className="font-black text-midnight">56.0%</span> at 5% FPR.
             </p>
           </div>
         </div>
-        <div className="hidden md:flex gap-6 text-xs text-gray-400">
+        <div className="hidden md:flex gap-6 text-xs text-midnight-card">
           <div className="flex flex-col text-right">
             <span className="uppercase tracking-wider font-bold">Project</span>
             <span className="font-black text-midnight">Active</span>
@@ -164,12 +164,12 @@ export default function Dashboard() {
         {/* Total & Escalated */}
         <div className="rounded-xl border-2 border-mint-dark bg-mint p-4 shadow-lg flex items-center justify-between">
           <div>
-            <h2 className="text-xs font-black uppercase tracking-wider text-gray-400/80 mb-1">Network Alerts</h2>
+            <h2 className="text-xs font-black uppercase tracking-wider text-midnight-card/80 mb-1">Network Alerts</h2>
             <div className="text-3xl font-black text-midnight">{cases.length}</div>
           </div>
           <div className="h-10 w-px bg-midnight/20 mx-2"></div>
           <div className="text-right">
-            <h2 className="text-xs font-black uppercase tracking-wider text-gray-400/80 mb-1">Escalated</h2>
+            <h2 className="text-xs font-black uppercase tracking-wider text-midnight-card/80 mb-1">Escalated</h2>
             <div className="text-3xl font-black text-midnight">{escCount}</div>
           </div>
         </div>
@@ -177,7 +177,7 @@ export default function Dashboard() {
         {/* Avg Risk Score */}
         <div className="rounded-xl border-2 border-mint-dark bg-mint p-4 shadow-lg relative overflow-hidden">
           <div className="absolute right-0 top-0 h-16 w-16 bg-midnight-card/20 blur-xl rounded-full" />
-          <h2 className="text-xs font-black uppercase tracking-wider text-gray-400/80 mb-1 relative z-10">Avg Risk Score</h2>
+          <h2 className="text-xs font-black uppercase tracking-wider text-midnight-card/80 mb-1 relative z-10">Avg Risk Score</h2>
           <div className="flex items-end gap-2 relative z-10">
             <div className="text-3xl font-black text-midnight leading-none">
               {(cases.reduce((sum, c) => sum + (c.score || 0), 0) / Math.max(cases.length, 1)).toFixed(2)}
@@ -188,7 +188,7 @@ export default function Dashboard() {
 
         {/* Top Pattern */}
         <div className="rounded-xl border-2 border-mint-dark bg-mint p-4 shadow-lg">
-          <h2 className="text-xs font-black uppercase tracking-wider text-gray-400/80 mb-1">Top Typology</h2>
+          <h2 className="text-xs font-black uppercase tracking-wider text-midnight-card/80 mb-1">Top Typology</h2>
           {cases.length > 0 ? (() => {
             const patternCounts = cases.reduce((acc, c) => {
               acc[c.pattern] = (acc[c.pattern] || 0) + 1;
@@ -198,21 +198,21 @@ export default function Dashboard() {
             return (
               <div className="flex flex-col">
                 <div className="text-base font-black text-midnight truncate uppercase tracking-wider">{PATTERN_LABEL[topPattern[0]] || topPattern[0]}</div>
-                <div className="text-sm font-medium text-gray-400/90">{topPattern[1]} alerts ({(topPattern[1]/total*100).toFixed(0)}%)</div>
+                <div className="text-sm font-medium text-midnight-card/90">{topPattern[1]} alerts ({(topPattern[1]/total*100).toFixed(0)}%)</div>
               </div>
             );
-          })() : <div className="text-sm text-gray-400">None</div>}
+          })() : <div className="text-sm text-midnight-card">None</div>}
         </div>
 
         {/* Queue Status Breakdown */}
         <div className="rounded-xl border-2 border-mint-dark bg-mint p-4 shadow-lg flex flex-col justify-center">
-          <h2 className="text-xs font-black uppercase tracking-wider text-gray-400/80 mb-2">Queue Health</h2>
+          <h2 className="text-xs font-black uppercase tracking-wider text-midnight-card/80 mb-2">Queue Health</h2>
           <div className="flex h-2 w-full rounded-full overflow-hidden mb-2 bg-midnight/20">
             <div style={{ width: `${getPercentage(openCount)}%` }} className="bg-midnight" />
             <div style={{ width: `${getPercentage(escCount)}%` }} className="bg-gold" />
             <div style={{ width: `${getPercentage(filedCount)}%` }} className="bg-midnight-card" />
           </div>
-          <div className="flex justify-between text-[11px] font-black uppercase tracking-wider text-gray-400/90">
+          <div className="flex justify-between text-[11px] font-black uppercase tracking-wider text-midnight-card/90">
             <span>{openCount} Open</span>
             <span className="text-midnight">{escCount} Esc</span>
             <span className="text-white">{filedCount} Filed</span>
@@ -324,7 +324,7 @@ export default function Dashboard() {
                   alert('Error starting pipeline');
                 }
               }}
-              className="flex items-center gap-2 rounded-lg bg-mint px-4 py-2 text-xs font-bold uppercase tracking-wider text-gray-400 hover:bg-mint-hover transition-colors shadow-lg shadow-mint/20"
+              className="flex items-center gap-2 rounded-lg bg-mint px-4 py-2 text-xs font-bold uppercase tracking-wider text-midnight-card hover:bg-mint-hover transition-colors shadow-lg shadow-mint/20"
             >
               <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
