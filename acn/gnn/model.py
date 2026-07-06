@@ -1,16 +1,23 @@
-"""GraphSAGE laundering detector.
+"""Directed-multigraph GraphSAGE laundering detector.
 
-Two SAGEConv layers (a 2-hop neighbourhood, kept shallow to avoid over-smoothing) and a linear
-head producing one logit per node. A 2-hop receptive field alone can't see long layering chains,
-so the input carries a **chain-aware block** (``graph.chain_features``): the Cypher layers' path
-findings as per-node features, giving the model the long-range structure message passing can't
-reach. Loss is weighted BCE with the laundering class up-weighted (~200x) to counter the 0.052%
-base rate — without it the model collapses to predicting "clean" everywhere.
+Replaces the symmetric SAGEConv baseline with ``DirMultigraphSAGE``, a two-layer
+directed-multigraph message-passing network. Each message carries both the source
+node's features **and the edge's own features** (amount bucket, structuring flag,
+timing), and in-flow / out-flow are aggregated separately — matching three of the
+adaptations from Egressy et al. AAAI 2024 ("Provably Powerful GNNs for Directed
+Multigraphs") that are empirically most impactful on AML tasks.
 
-Trained on the **pseudonymised merged graph** — the graph engine's own graph + bucket features,
-so train and inference use the same representation. Privacy holds because the merged graph carries
-only hashes + buckets (no raw identity/amount ever leaves a bank). ``torch``/``torch_geometric``
-are imported only on the training/scoring path, never in the pure/tested code.
+Architecture:
+  DirMultigraphConv (×2)
+    msg(u→v)   = ReLU(Linear([h_u ‖ e_uv]))
+    in_agg[v]  = mean{ msg(u→v) : all u→v }   # what flows IN
+    out_agg[u] = mean{ msg(u→v) : all u→v }   # what flows OUT
+    h_v'       = ReLU(Linear([h_v ‖ in_agg[v] ‖ out_agg[v]]))
+  Linear head → one logit per node.
+
+Loss: weighted BCE (~200× on laundering class) to counter the 0.052% base rate.
+Feature schema lives in ``acn.gnn.features`` — single source of truth.
+``torch``/``torch_geometric`` are imported only on the training/scoring path.
 """
 
 from __future__ import annotations
@@ -19,38 +26,121 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
-from torch_geometric.data import Data
-from torch_geometric.nn import SAGEConv
 
 from ..graph import chain_features
-from . import graph_build
+from . import features
 
-# Feature width = scalar features + the 10 amount-bucket bins (graph_build.to_arrays) + the
-# chain-aware block (chain_features): the Cypher layers' path findings, so the model can see
-# long-range chain structure its 2-hop receptive field can't reach.
-IN_DIM = len(graph_build._SCALAR_FEATURES) + graph_build.N_BUCKETS + chain_features.N_CHAIN_FEATURES
+# Input dimensions (node and edge feature widths).
+IN_DIM = (
+    len(features.SCALAR_FEATURES)
+    + features.N_BUCKETS
+    + chain_features.N_CHAIN_FEATURES
+)
+EDGE_DIM = features.N_EDGE_FEATURES  # 13
 HIDDEN_DIM = 64
 LAUNDERING_POS_WEIGHT = 200.0
 
 
-class GraphSAGE(nn.Module):
-    """2-layer GraphSAGE → per-node laundering logit."""
+# ---------------------------------------------------------------------------
+# Low-level scatter helper (pure PyTorch — no torch_scatter dependency)
+# ---------------------------------------------------------------------------
 
-    def __init__(self, in_dim: int = IN_DIM, hidden: int = HIDDEN_DIM, layers: int = 2):
+
+def _scatter_mean(src: torch.Tensor, index: torch.Tensor, dim_size: int) -> torch.Tensor:
+    """Mean-aggregate rows of ``src`` grouped by ``index`` (pure PyTorch)."""
+    out = torch.zeros(dim_size, src.size(1), dtype=src.dtype, device=src.device)
+    cnt = torch.zeros(dim_size, 1, dtype=src.dtype, device=src.device)
+    idx = index.unsqueeze(1).expand_as(src)
+    ones = torch.ones(src.size(0), 1, dtype=src.dtype, device=src.device)
+    out.scatter_add_(0, idx, src)
+    cnt.scatter_add_(0, index.unsqueeze(1), ones)
+    return out / cnt.clamp(min=1.0)
+
+
+# ---------------------------------------------------------------------------
+# DirMultigraphConv — one directed-multigraph message-passing layer
+# ---------------------------------------------------------------------------
+
+
+class DirMultigraphConv(nn.Module):
+    """Edge-conditioned, direction-aware graph convolution for directed multigraphs.
+
+    For every directed edge (u→v) with feature vector e:
+      message = ReLU(Linear([h_u ‖ e]))
+
+    Separate mean-pools over incoming/outgoing messages give each node independent
+    signals for what flows *in* vs what flows *out* — a key AML discriminator (a
+    pass-through mule has in ≈ out; a money source has high out and low in).
+    """
+
+    def __init__(self, in_channels: int, edge_channels: int, out_channels: int) -> None:
+        super().__init__()
+        # Message: concatenates source node embedding with the edge's own features.
+        self.msg_lin = nn.Linear(in_channels + edge_channels, out_channels)
+        # Update: combines the node's own embedding with both aggregation signals.
+        self.update_lin = nn.Linear(in_channels + 2 * out_channels, out_channels)
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        edge_index: torch.Tensor,
+        edge_attr: torch.Tensor,
+    ) -> torch.Tensor:
+        n = x.size(0)
+        src, dst = edge_index[0], edge_index[1]
+
+        # Build one message per directed edge: f(source embedding ‖ edge features)
+        msgs = F.relu(self.msg_lin(torch.cat([x[src], edge_attr], dim=-1)))
+
+        # Separate aggregation for in-neighbourhood (→ dst) and out-neighbourhood (src →)
+        in_agg = _scatter_mean(msgs, dst, n)
+        out_agg = _scatter_mean(msgs, src, n)
+
+        return F.relu(self.update_lin(torch.cat([x, in_agg, out_agg], dim=-1)))
+
+
+# ---------------------------------------------------------------------------
+# DirMultigraphSAGE — full 2-layer model
+# ---------------------------------------------------------------------------
+
+
+class DirMultigraphSAGE(nn.Module):
+    """2-layer directed-multigraph GNN → per-node laundering logit."""
+
+    def __init__(
+        self,
+        in_dim: int = IN_DIM,
+        edge_dim: int = EDGE_DIM,
+        hidden: int = HIDDEN_DIM,
+        layers: int = 2,
+    ) -> None:
         super().__init__()
         self.convs = nn.ModuleList(
-            SAGEConv(in_dim if i == 0 else hidden, hidden) for i in range(layers)
+            DirMultigraphConv(in_dim if i == 0 else hidden, edge_dim, hidden)
+            for i in range(layers)
         )
         self.head = nn.Linear(hidden, 1)
 
-    def forward(self, x: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
+    def forward(
+        self,
+        x: torch.Tensor,
+        edge_index: torch.Tensor,
+        edge_attr: torch.Tensor,
+    ) -> torch.Tensor:
         for conv in self.convs:
-            x = F.relu(conv(x, edge_index))
+            x = conv(x, edge_index, edge_attr)
         return self.head(x).squeeze(-1)  # logits, shape [num_nodes]
 
 
+# ---------------------------------------------------------------------------
+# Loss + normalisation helpers (unchanged from the GraphSAGE baseline)
+# ---------------------------------------------------------------------------
+
+
 def weighted_bce(
-    logits: torch.Tensor, labels: torch.Tensor, pos_weight: float = LAUNDERING_POS_WEIGHT
+    logits: torch.Tensor,
+    labels: torch.Tensor,
+    pos_weight: float = LAUNDERING_POS_WEIGHT,
 ):
     """Weighted BCE-with-logits; ``pos_weight`` up-weights the rare laundering class."""
     return F.binary_cross_entropy_with_logits(
@@ -58,8 +148,7 @@ def weighted_bce(
     )
 
 
-# Heavy-tailed feature columns (spanning orders of magnitude) that need log-compression
-# before z-scoring, else a GraphSAGE with raw ₹-millions features simply cannot learn.
+# Heavy-tailed node feature columns that need log-compression before z-scoring.
 _LOG_FEATURES = [
     "txn_count",
     "amount_mean",
@@ -71,42 +160,20 @@ _LOG_FEATURES = [
     "out_degree",
 ]
 
+_SCALAR_FEATURES = features.SCALAR_FEATURES  # local alias for normalise_features indexing
+
 
 def normalise_features(feats: np.ndarray) -> np.ndarray:
-    """log-compress the heavy-tailed columns, then z-score every column (per graph).
+    """log-compress heavy-tailed node columns, then z-score every column (per graph).
 
-    Standardisation is per graph — without it the giant amount columns swamp the binary/ratio
-    features and training collapses.
+    Operates on node features only — edge features are normalised inline in
+    ``score.reconstruct_features`` so train and inference stay consistent.
     """
     f = feats.astype(float).copy()
     for name in _LOG_FEATURES:
-        c = graph_build._SCALAR_FEATURES.index(name)
+        c = _SCALAR_FEATURES.index(name)
         f[:, c] = np.log1p(np.clip(f[:, c], 0.0, None))
     mu = f.mean(axis=0)
     sd = f.std(axis=0)
     sd[sd == 0] = 1.0
     return (f - mu) / sd
-
-
-def nx_to_pyg(g) -> Data:
-    """Convert an nx training graph to a PyG ``Data`` with a labelled-node ``train_mask``.
-
-    Node features are normalised (``normalise_features``). The mask is True only for
-    labelled, non-boundary nodes — boundary nodes give message passing structure but are
-    never loss targets.
-    """
-    nodes, feats, labels, boundary = graph_build.to_arrays(g)
-    feats = normalise_features(feats)
-    index = {n: i for i, n in enumerate(nodes)}
-    if g.number_of_edges():
-        edges = [(index[u], index[v]) for u, v in g.edges()]
-        edge_index = torch.tensor(edges, dtype=torch.long).t().contiguous()
-    else:
-        edge_index = torch.empty((2, 0), dtype=torch.long)
-    mask = (~boundary) & (labels >= 0)
-    return Data(
-        x=torch.tensor(feats, dtype=torch.float),
-        edge_index=edge_index,
-        y=torch.tensor(np.clip(labels, 0, 1), dtype=torch.long),
-        train_mask=torch.tensor(mask, dtype=torch.bool),
-    )

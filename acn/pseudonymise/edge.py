@@ -22,6 +22,7 @@ EDGE_KEYS = frozenset(
         "dst_hash",
         "amount_bucket",
         "threshold_proximity",
+        "is_round_amount",
         "timestamp",
         "publishing_institution",
     }
@@ -54,6 +55,7 @@ def build_edge(
         "dst_hash": hashing.hash_account(salt, dst_owner, to_account),
         "amount_bucket": buckets.amount_bucket(amount),
         "threshold_proximity": buckets.threshold_proximity(amount),
+        "is_round_amount": amount % 10000 == 0,
         "timestamp": ts,
         "publishing_institution": publishing_institution,
     }

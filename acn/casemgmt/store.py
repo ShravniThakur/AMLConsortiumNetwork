@@ -17,7 +17,8 @@ VALID_DECISIONS = {"file", "dismiss", "escalate"}
 _LIST = """
 MATCH (al:Alert)-[:EVIDENCE]->(n:Account)
 WITH al, collect(DISTINCT n.institution_id) AS insts
-WHERE $status IS NULL OR coalesce(al.case_status, 'open') = $status
+WHERE ($status IS NULL OR coalesce(al.case_status, 'open') = $status)
+  AND ($institution IS NULL OR $institution IN insts)
 RETURN al.alert_id AS alert_id, al.pattern AS pattern, al.score AS score,
        coalesce(al.case_status, 'open') AS status, al.created_ts AS created_ts,
        [i IN insts WHERE i IS NOT NULL] AS institutions
@@ -40,10 +41,10 @@ RETURN al.alert_id AS alert_id, al.case_status AS status
 _STATUS_FOR = {"file": "filed", "dismiss": "dismissed", "escalate": "escalated"}
 
 
-def list_cases(driver, status: str | None = None, limit: int = 50) -> list[dict]:
+def list_cases(driver, status: str | None = None, institution: str | None = None, limit: int = 50) -> list[dict]:
     """List cases (alerts) as summaries, optionally filtered by lifecycle status."""
     with driver.session() as s:
-        return s.run(_LIST, status=status, limit=limit).data()
+        return s.run(_LIST, status=status, institution=institution, limit=limit).data()
 
 
 def record_decision(driver, alert_id: str, decision: str, officer: str) -> dict:

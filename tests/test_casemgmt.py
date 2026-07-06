@@ -123,7 +123,7 @@ def test_template_mentions_pattern_and_officer_gate():
     r = FakeRedis()
     view = case_mod.resolve_for(r, _case(), "INST_A")
     text = str_draft.render_template(view)
-    assert "returned to it through intermediaries" in text  # round_trip phrasing
+    assert "cycle layering" in text  # round_trip phrasing
     assert "must verify" in text and "No report is submitted automatically" in text
 
 

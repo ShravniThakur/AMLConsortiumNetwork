@@ -19,11 +19,11 @@ WHERE s.timestamp >= $window_start AND s.timestamp <= $window_end
   AND r.timestamp >= s.timestamp
   AND r.timestamp - s.timestamp <= $window_seconds
   AND src.hash <> dst.hash AND src.hash <> mid.hash AND mid.hash <> dst.hash
-WITH mid, collect(DISTINCT src) AS srcs, collect(DISTINCT dst) AS dsts
-WITH [mid] + srcs + dsts AS ns, mid, size(srcs) + size(dsts) AS fan
+WITH mid, collect(DISTINCT src) AS srcs, collect(DISTINCT dst) AS dsts, min(s.timestamp) AS min_ts, max(r.timestamp) AS max_ts
+WITH [mid] + srcs + dsts AS ns, mid, size(srcs) + size(dsts) AS fan, min_ts, max_ts
 RETURN [n IN ns | n.hash] AS nodes,
        [n IN ns WHERE n.institution_id IS NOT NULL | n.institution_id] AS insts,
-       mid.hash AS focus, fan AS fan
+       mid.hash AS focus, fan AS fan, toInteger((max_ts - min_ts) / 86400.0) AS timespan_days
 ORDER BY fan DESC
 LIMIT $limit
 """

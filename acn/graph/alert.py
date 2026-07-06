@@ -40,7 +40,8 @@ WITH collect(a) AS ev
 WHERE size(ev) > 0
 MERGE (al:Alert {alert_id: $alert_id})
   ON CREATE SET al.pattern = $pattern, al.score = $score,
-                al.created_ts = $created_ts, al.recipients = $recipients
+                al.created_ts = $created_ts, al.recipients = $recipients,
+                al.timespan_days = $timespan_days
 FOREACH (n IN ev |
   MERGE (al)-[:EVIDENCE]->(n)
   SET n.under_investigation = true)
@@ -90,6 +91,7 @@ def build_alert(
         "alert_id": alert_id(candidate, window_start),
         "pattern": candidate["pattern"],
         "score": round(float(candidate.get("score", 0.0)), 6),
+        "timespan_days": candidate.get("timespan_days", 0),
         "recipients": recipients,
         "evidence": evidence,
         "created_ts": created_ts,
@@ -126,6 +128,7 @@ def persist(driver, alert: dict) -> int:
                 alert_id=alert["alert_id"],
                 pattern=alert["pattern"],
                 score=alert["score"],
+                timespan_days=alert.get("timespan_days", 0),
                 recipients=alert["recipients"],
                 created_ts=alert["created_ts"],
             ).single()

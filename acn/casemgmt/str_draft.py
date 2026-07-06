@@ -14,11 +14,12 @@ customer.
 from __future__ import annotations
 
 _PATTERN_PHRASING = {
-    "sliding_window": "funds were received and moved out again within a short window",
-    "path_tracker": "funds moved through a multi-hop chain spanning several institutions",
-    "round_trip": "funds left an account and returned to it through intermediaries",
-    "flow_conservation": "an account forwarded almost exactly what it received (pass-through)",
-    "coordinated_new_accounts": "a cluster of newly-seen accounts moved funds in concert",
+    "sliding_window": "layering hop",
+    "path_tracker": "multi-hop stack",
+    "round_trip": "cycle",
+    "flow_conservation": "pass-through mule",
+    "coordinated_new_accounts": "fan-in gather",
+    "fan_out": "scatter-gather",
 }
 
 
@@ -39,15 +40,17 @@ def render_template(case_view: dict) -> str:
     desc = _PATTERN_PHRASING.get(pattern, pattern.replace("_", " "))
     accounts = case_view.get("accounts", [])
     lines = "\n".join(_account_line(a) for a in accounts)
-    parties = ", ".join(case_view.get("institutions", [])) or inst
+    parties = case_view.get("institutions", [])
+    parties_str = ", ".join(parties) or inst
+    n_banks = max(1, len(parties))
+    n_days = max(1, case_view.get("timespan_days") or 1)
 
     return (
         f"DRAFT SUSPICIOUS TRANSACTION REPORT — for review by the Principal Officer\n"
         f"Reporting institution: {inst}\n"
         f"Alert reference: {case_view.get('alert_id', '')}\n\n"
-        f"Summary: automated cross-institution monitoring flagged a suspected layering pattern "
-        f"({pattern.replace('_', ' ')}, model score {float(case_view.get('score', 0.0)):.2f}) in "
-        f"which {desc}. The activity spans: {parties}.\n\n"
+        f"Summary: automated cross-institution monitoring flagged {desc} layering across {n_banks} banks over {n_days} days "
+        f"(model score {float(case_view.get('score', 0.0)):.2f}). The activity spans: {parties_str}.\n\n"
         f"Accounts in the evidence subgraph:\n{lines}\n\n"
         f"Basis for suspicion: "
         f"{case_view.get('evidence_text') or 'see attached evidence subgraph.'}\n\n"

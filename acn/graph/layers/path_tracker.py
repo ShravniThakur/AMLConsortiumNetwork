@@ -31,12 +31,13 @@ WHERE a.hash <> z.hash
   AND rels[0].timestamp <= $window_end
   AND rels[size(rels) - 1].timestamp - rels[0].timestamp <= $span_seconds
 WITH nodes(path) AS ns,
-     [n IN nodes(path) WHERE n.institution_id IS NOT NULL | n.institution_id] AS insts
-WITH ns, insts,
+     [n IN nodes(path) WHERE n.institution_id IS NOT NULL | n.institution_id] AS insts,
+     toInteger((rels[size(rels) - 1].timestamp - rels[0].timestamp) / 86400.0) AS timespan_days
+WITH ns, insts, timespan_days,
      reduce(acc = [], x IN insts | CASE WHEN x IN acc THEN acc ELSE acc + x END) AS distinct_inst
 WHERE size(distinct_inst) >= 2
 RETURN [n IN ns | n.hash] AS nodes, insts AS insts,
-       size(ns) AS chain_len, size(distinct_inst) AS n_inst
+       size(ns) AS chain_len, size(distinct_inst) AS n_inst, timespan_days
 ORDER BY chain_len DESC, n_inst DESC
 LIMIT $limit
 """

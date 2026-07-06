@@ -18,15 +18,16 @@ CYPHER = """
 MATCH (new:Account)-[e:SENT]->(target:Account)
 WHERE new.first_seen_ts >= $window_start AND new.first_seen_ts <= $window_end
   AND e.timestamp >= $window_start AND e.timestamp <= $window_end
-WITH target, collect(DISTINCT new) AS newbies
-WITH target, newbies, [n IN newbies | n.first_seen_ts] AS fs
+WITH target, collect(DISTINCT new) AS newbies, min(e.timestamp) AS min_ts, max(e.timestamp) AS max_ts
+WITH target, newbies, [n IN newbies | n.first_seen_ts] AS fs, min_ts, max_ts
 WHERE size(newbies) >= $min_cluster
   AND reduce(mx = -1, x IN fs | CASE WHEN x > mx THEN x ELSE mx END)
       - reduce(mn = 9999999999, x IN fs | CASE WHEN x < mn THEN x ELSE mn END) <= $burst_seconds
-WITH [target] + newbies AS ns, target, size(newbies) AS cluster_size
+WITH [target] + newbies AS ns, target, size(newbies) AS cluster_size, min_ts, max_ts
 RETURN [n IN ns | n.hash] AS nodes,
        [n IN ns WHERE n.institution_id IS NOT NULL | n.institution_id] AS insts,
-       target.hash AS focus, cluster_size AS cluster_size
+       target.hash AS focus, cluster_size AS cluster_size,
+       toInteger((max_ts - min_ts) / 86400.0) AS timespan_days
 ORDER BY cluster_size DESC
 LIMIT $limit
 """

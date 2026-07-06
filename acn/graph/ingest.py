@@ -39,6 +39,7 @@ FOREACH (_ IN CASE WHEN row.event_type = 'transfer' THEN [1] ELSE [] END |
   MERGE (s)-[e:SENT {event_id: row.event_id}]->(d)
     ON CREATE SET e.amount_bucket = row.amount_bucket,
                   e.threshold_proximity = row.threshold_proximity,
+                  e.is_round_amount = row.is_round_amount,
                   e.timestamp = row.timestamp)
 """
 

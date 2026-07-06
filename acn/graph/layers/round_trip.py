@@ -21,10 +21,11 @@ WHERE all(i IN range(0, size(rels) - 2)
   AND rels[0].timestamp >= $window_start
   AND rels[0].timestamp <= $window_end
   AND rels[size(rels) - 1].timestamp - rels[0].timestamp <= $span_seconds
-WITH a, nodes(path) AS ns
+WITH a, nodes(path) AS ns, rels
 RETURN [n IN ns | n.hash] AS nodes,
        [n IN ns WHERE n.institution_id IS NOT NULL | n.institution_id] AS insts,
-       a.hash AS focus, size(ns) AS loop_len
+       a.hash AS focus, size(ns) AS loop_len,
+       toInteger((rels[size(rels) - 1].timestamp - rels[0].timestamp) / 86400.0) AS timespan_days
 ORDER BY loop_len DESC
 LIMIT $limit
 """

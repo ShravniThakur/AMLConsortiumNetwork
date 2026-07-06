@@ -12,7 +12,6 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 
-from .schema import DETECT_END, DETECT_START
 
 DEFAULT_TARGET_ROWS = 310_000
 SAMPLE_SEED = 42  # fixed so the ~310K sample is reproducible before partitioning
@@ -108,13 +107,6 @@ def chain_preserving_sample(
     out = pd.concat([selected_laundering, sampled_bg]).sort_values("timestamp")
     return out.reset_index(drop=True)
 
-
-def _in_detect_window(df: pd.DataFrame) -> pd.Series:
-    """Boolean mask: rows whose timestamp falls in the detect window [DETECT_START, DETECT_END]."""
-    ts = pd.to_datetime(df["timestamp"])
-    lo = pd.Timestamp(DETECT_START)
-    hi = pd.Timestamp(DETECT_END) + pd.Timedelta(days=1)  # inclusive of the whole last day
-    return (ts >= lo) & (ts < hi)
 
 
 def _chain_account_counts(laund: pd.DataFrame) -> dict[int, int]:

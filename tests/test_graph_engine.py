@@ -74,7 +74,7 @@ def test_alert_build_is_pseudonymised_and_deterministic():
     assert a1["evidence"] == ["ha", "hb"]  # sorted
     assert a1["recipients"] == ["INST_A"]
     # only pseudonymised fields — no raw id/amount anywhere
-    assert set(a1) == {"alert_id", "pattern", "score", "recipients", "evidence", "created_ts"}
+    assert set(a1) == {"alert_id", "pattern", "score", "recipients", "evidence", "created_ts", "timespan_days"}
 
 
 def test_alert_emit_guards_against_no_evidence():
@@ -92,13 +92,15 @@ def test_feature_reconstruction_shape_and_flow():
             "b": {"institution_id": None, "first_seen_ts": BASE_TS - 2 * DAY},
         },
         "edges": [
-            ("a", "mid", "bucket_5", BASE_TS),
-            ("mid", "b", "bucket_5", BASE_TS + 60),
+            ("a", "mid", "bucket_5", None, BASE_TS),
+            ("mid", "b", "bucket_5", None, BASE_TS + 60),
         ],
+        "window_start": BASE_TS - DAY,
     }
-    nodes, feats, edge_index = score.reconstruct_features(graph, ref_ts=BASE_TS + DAY)
+    nodes, feats, edge_index, edge_attr = score.reconstruct_features(graph, ref_ts=BASE_TS + DAY)
     assert feats.shape == (3, len(score._FEATURES) + buckets.N_BUCKETS)
     assert edge_index.shape == (2, 2)
+    assert edge_attr.shape == (2, 17)
     col = {n: i for i, n in enumerate(score._FEATURES)}
     mid = nodes.index("mid")
     assert feats[mid, col["txn_count"]] == 1  # one outgoing
@@ -110,19 +112,23 @@ def test_feature_reconstruction_shape_and_flow():
 def test_score_plumbing_with_fresh_model():
     torch = pytest.importorskip("torch")
     pytest.importorskip("torch_geometric")
-    from acn.gnn.model import GraphSAGE
+    from acn.gnn.model import EDGE_DIM, DirMultigraphSAGE
 
     graph = {
         "nodes": ["a", "b", "c"],
         "meta": {h: {"institution_id": "INST_A", "first_seen_ts": BASE_TS - DAY} for h in "abc"},
-        "edges": [("a", "b", "bucket_3", BASE_TS), ("b", "c", "bucket_3", BASE_TS + 60)],
+        "edges": [
+            ("a", "b", "bucket_3", None, BASE_TS),
+            ("b", "c", "bucket_3", None, BASE_TS + 60),
+        ],
+        "window_start": BASE_TS - DAY,
     }
-    nodes, feats, ei = score.reconstruct_features(graph, ref_ts=BASE_TS + DAY)
+    nodes, feats, ei, ea = score.reconstruct_features(graph, ref_ts=BASE_TS + DAY)
     # base reconstruct width (Cypher chain features are appended in the real pipeline, not here)
-    model = GraphSAGE(in_dim=feats.shape[1])
+    model = DirMultigraphSAGE(in_dim=feats.shape[1], edge_dim=EDGE_DIM)
     model.eval()
     with torch.no_grad():
-        probs = score.score_graph(model, feats, ei)
+        probs = score.score_graph(model, feats, ei, ea)
     assert probs.shape == (3,)
     assert ((0.0 <= probs) & (probs <= 1.0)).all()
     cands = score.score_candidates([{"nodes": ["a", "b"]}], nodes, probs)

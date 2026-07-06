@@ -1,4 +1,4 @@
-"""GNNExplainer over the GraphSAGE model.
+"""GNNExplainer over the DirMultigraphSAGE model.
 
 For an alerted node, answer **what drove its laundering score** — which incoming transactions
 (edges) and which node features mattered most. We use PyG's GNNExplainer, *not* attention
@@ -7,8 +7,8 @@ mask over the actual inputs, i.e. *causal influence*. When the output becomes ev
 regulatory filing, "what caused this score" must be an influence answer, not an aggregation
 artefact (explainability ADR).
 
-Because GraphSAGE is 2 layers, a node's score depends only on its 2-hop in-neighbourhood, so we
-extract that k-hop subgraph and explain within it — faithful *and* cheap (never the 230k-node
+Because DirMultigraphSAGE is 2 layers, a node's score depends only on its 2-hop in-neighbourhood,
+so we extract that k-hop subgraph and explain within it — faithful *and* cheap (never the 230k-node
 graph). ``torch``/``torch_geometric`` are imported lazily so ``evidence.py`` and its tests stay
 torch-free.
 """
@@ -17,20 +17,29 @@ from __future__ import annotations
 
 import numpy as np
 
-from ..gnn import graph_build
+from ..gnn import features
+from ..graph import chain_features
 from ..graph import score as graph_score
 
 DEFAULT_EPOCHS = 100  # GNNExplainer mask-optimisation steps (recorded in explain_report.md)
 NUM_HOPS = 2  # matches the 2 SAGEConv layers — the node's full receptive field
 
-# Human-facing feature names in the model's column order (scalars + the 10 amount-bucket bins).
-FEATURE_NAMES = list(graph_score._FEATURES) + [
-    f"amount_bucket_{i}" for i in range(1, graph_build.N_BUCKETS + 1)
-]
+# Human-facing feature names in the model's column order (scalars + the 10 amount-bucket bins + chain features).
+FEATURE_NAMES = (
+    list(graph_score._FEATURES)
+    + [f"amount_bucket_{i}" for i in range(1, features.N_BUCKETS + 1)]
+    + list(chain_features.FEATURE_NAMES)
+)
 
 
 def build_explainer(model, epochs: int = DEFAULT_EPOCHS):
-    """Wrap a trained GraphSAGE model in a PyG ``Explainer`` for node-level binary output."""
+    """Wrap a trained DirMultigraphSAGE model in a PyG ``Explainer`` for node-level binary output.
+
+    ``edge_mask_type=None``: DirMultigraphSAGE carries edge information through ``edge_attr``
+    content (amount bucket, proximity, timing) rather than through edge-index presence, so PyG's
+    GNNExplainer cannot compute edge-index gradients. Edge influence is captured indirectly via
+    node masks, which aggregate the effect of all incoming edge attributes through the model.
+    """
     from torch_geometric.explain import Explainer, GNNExplainer
 
     return Explainer(
@@ -38,7 +47,7 @@ def build_explainer(model, epochs: int = DEFAULT_EPOCHS):
         algorithm=GNNExplainer(epochs=epochs),
         explanation_type="model",
         node_mask_type="attributes",
-        edge_mask_type="object",
+        edge_mask_type=None,
         model_config=dict(mode="binary_classification", task_level="node", return_type="raw"),
     )
 
@@ -51,12 +60,14 @@ def explain_node(
     top_k_edges: int = 5,
     top_k_features: int = 5,
     num_hops: int = NUM_HOPS,
+    edge_attr: np.ndarray | None = None,
 ) -> dict:
     """Explain the score for one global node; return plain-Python edges + feature importances.
 
-    ``feats``/``edge_index`` are the whole-graph arrays (from ``score.reconstruct_features``).
-    We normalise features exactly as scoring did, pull the target's k-hop subgraph, run the
-    explainer, and map masks back to **global** node indices so callers can resolve hashes.
+    ``feats``/``edge_index``/``edge_attr`` are the whole-graph arrays (from
+    ``score.reconstruct_features``). We normalise node features exactly as scoring did, pull the
+    target's k-hop subgraph, run the explainer on the subgraph, and map masks back to **global**
+    node indices so callers can resolve hashes.
     """
     import torch
     from torch_geometric.utils import k_hop_subgraph
@@ -66,7 +77,16 @@ def explain_node(
     x = torch.tensor(normalise_features(feats), dtype=torch.float)
     ei = torch.tensor(edge_index, dtype=torch.long)
 
-    subset, sub_ei, mapping, _ = k_hop_subgraph(int(target_idx), num_hops, ei, relabel_nodes=True)
+    # Edge attributes for the whole graph (zeros if not provided — backwards-compatible).
+    if edge_attr is not None:
+        ea_full = torch.tensor(edge_attr, dtype=torch.float)
+    else:
+        from ..gnn.features import N_EDGE_FEATURES
+        ea_full = torch.zeros(ei.shape[1], N_EDGE_FEATURES)
+
+    subset, sub_ei, mapping, edge_mask_idx = k_hop_subgraph(
+        int(target_idx), num_hops, ei, relabel_nodes=True
+    )
     if sub_ei.numel() == 0:
         # Pure-source node: nothing flows in, so the model had no edges to attribute the score to.
         return {
@@ -77,18 +97,12 @@ def explain_node(
         }
 
     sub_x = x[subset]
-    explanation = explainer(sub_x, sub_ei, index=int(mapping[0]))
+    sub_ea = ea_full[edge_mask_idx]  # slice edge attrs to the k-hop subgraph
+    explanation = explainer(sub_x, sub_ei, edge_attr=sub_ea, index=int(mapping[0]))
 
-    edge_mask = explanation.edge_mask.detach().cpu().numpy()
-    subset_np = subset.detach().cpu().numpy()
-    src_local = sub_ei[0].detach().cpu().numpy()
-    dst_local = sub_ei[1].detach().cpu().numpy()
-    order = np.argsort(edge_mask)[::-1][:top_k_edges]
-    top_edges = [
-        (int(subset_np[src_local[e]]), int(subset_np[dst_local[e]]), float(edge_mask[e]))
-        for e in order
-        if edge_mask[e] > 0
-    ]
+    # No edge mask: edge_mask_type=None means PyG won't compute per-edge scores (edge_attr content
+    # drives influence, not edge-index presence). Return empty top_edges — evidence.py handles it.
+    top_edges: list = []
 
     node_mask = explanation.node_mask.detach().cpu().numpy()  # [sub_nodes, n_features]
     feat_imp = np.abs(node_mask).sum(axis=0)

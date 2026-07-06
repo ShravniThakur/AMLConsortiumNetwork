@@ -4,6 +4,11 @@ The raw IBM AML LI-Medium CSVs use spaced, title-cased headers (``From Bank``,
 ``Is Laundering`` …). Everything downstream works in snake_case, so `load.py`
 normalises once at the boundary and the rest of the pipeline speaks these names.
 Keep this in sync with the data model.
+
+Note: train/detect splitting is chain-based (see sample.build_train_detect_samples),
+not timestamp-based. ``DETECT_START``/``DETECT_END`` are fallback constants for
+``run_graph_engine._window()`` only; at runtime the window is always derived from
+actual edge timestamps in Neo4j.
 """
 
 from __future__ import annotations
@@ -44,7 +49,8 @@ JOINED_COLUMNS = [
 # The five institution labels, in order.
 INSTITUTIONS = ["INST_A", "INST_B", "INST_C", "INST_D", "INST_E"]
 
-# Window boundary: train = Sep 1–10 2022, detect = Sep 11–16 2022 (inclusive).
-TRAIN_END = "2022-09-10"  # last day in the training window
-DETECT_START = "2022-09-11"  # first day in the detection window
-DETECT_END = "2022-09-16"  # last day in the detection window
+# Detection-window fallbacks used by run_graph_engine._window() when Neo4j has no edges yet.
+# In a normal pipeline run these are never used — the window is always derived from actual edge
+# timestamps in Neo4j. The full-year range matches the IBM LI-Medium dataset used for training.
+DETECT_START = "2022-01-01"  # start of the IBM LI-Medium dataset
+DETECT_END = "2022-12-31"    # end of the IBM LI-Medium dataset

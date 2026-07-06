@@ -1,9 +1,11 @@
-"""Data-foundation tests — chain integrity, non-IID, ownership column, window split.
+"""Data-foundation tests — chain integrity, non-IID, ownership column.
 
 These run on small synthetic fixtures (no 31M-row dataset needed) and protect the
 invariants the real full-data run must uphold: chains are never partially dropped, the
-partition is non-IID, every row carries its owning-institution hook, and the train/detect
-windows never overlap.
+partition is non-IID, and every row carries its owning-institution hook.
+
+Note: the old timestamp-based split_windows approach has been removed; train/detect
+splitting is now chain-based (sample.build_train_detect_samples).
 """
 
 from __future__ import annotations
@@ -12,7 +14,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from acn.data import cluster, load, partition, report, sample, split_windows
+from acn.data import cluster, load, partition, report, sample
 from acn.data.schema import INSTITUTIONS
 
 
@@ -344,26 +346,6 @@ def test_dst_institution_is_owning_institution_of_to_bank():
     row = enriched.iloc[0]  # to_bank == 2 -> INST_B
     assert row["dst_institution"] == "INST_B"
 
-
-# ------------------------------------------------------------------- window split
-def test_window_split_has_no_overlap():
-    df = pd.DataFrame(
-        {
-            "timestamp": pd.to_datetime(
-                [
-                    "2022-09-09 08:00:00",
-                    "2022-09-10 23:59:59",
-                    "2022-09-11 00:00:00",
-                    "2022-09-16 20:00:00",
-                ]
-            ),
-            "is_laundering": [0, 0, 1, 1],
-        }
-    )
-    train, detect = split_windows.split_train_detect(df)
-    assert (pd.to_datetime(train["timestamp"]) < pd.Timestamp("2022-09-11")).all()
-    assert (pd.to_datetime(detect["timestamp"]) >= pd.Timestamp("2022-09-11")).all()
-    assert len(train) == 2 and len(detect) == 2
 
 
 # ---------------------------------------------------------------------- non-IID

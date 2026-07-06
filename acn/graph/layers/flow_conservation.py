@@ -26,17 +26,18 @@ _MIDS = {
 CYPHER = """
 MATCH (src:Account)-[i:SENT]->(mid:Account)
 WHERE i.timestamp >= $window_start AND i.timestamp <= $window_end
-WITH mid, sum($mids[i.amount_bucket]) AS in_amt, count(i) AS in_cnt, collect(DISTINCT src) AS srcs
+WITH mid, sum($mids[i.amount_bucket]) AS in_amt, count(i) AS in_cnt, collect(DISTINCT src) AS srcs, min(i.timestamp) as min_i, max(i.timestamp) as max_i
 MATCH (mid)-[o:SENT]->(dst:Account)
 WHERE o.timestamp >= $window_start AND o.timestamp <= $window_end
-WITH mid, in_amt, in_cnt, srcs,
-     sum($mids[o.amount_bucket]) AS out_amt, count(o) AS out_cnt, collect(DISTINCT dst) AS dsts
+WITH mid, in_amt, in_cnt, srcs, min_i, max_i,
+     sum($mids[o.amount_bucket]) AS out_amt, count(o) AS out_cnt, collect(DISTINCT dst) AS dsts, min(o.timestamp) as min_o, max(o.timestamp) as max_o
 WHERE in_cnt >= $min_txns AND out_cnt >= $min_txns AND in_amt > 0
   AND abs(out_amt - in_amt) <= $tolerance * in_amt
-WITH [mid] + srcs + dsts AS ns, mid, in_amt, out_amt, in_cnt + out_cnt AS fan
+WITH [mid] + srcs + dsts AS ns, mid, in_amt, out_amt, in_cnt + out_cnt AS fan, CASE WHEN min_i < min_o THEN min_i ELSE min_o END as min_ts, CASE WHEN max_i > max_o THEN max_i ELSE max_o END as max_ts
 RETURN [n IN ns | n.hash] AS nodes,
        [n IN ns WHERE n.institution_id IS NOT NULL | n.institution_id] AS insts,
-       mid.hash AS focus, in_amt AS in_amt, out_amt AS out_amt, fan AS fan
+       mid.hash AS focus, in_amt AS in_amt, out_amt AS out_amt, fan AS fan,
+       toInteger((max_ts - min_ts) / 86400.0) AS timespan_days
 ORDER BY fan DESC
 LIMIT $limit
 """

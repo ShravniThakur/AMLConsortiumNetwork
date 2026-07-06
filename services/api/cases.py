@@ -50,10 +50,11 @@ class Decision(BaseModel):
 @router.get("")
 def list_cases(
     status: str | None = None,
+    institution: str | None = None,
     limit: int = Query(50, ge=1, le=500),
     driver=Depends(get_driver),
 ) -> dict:
-    return {"cases": store.list_cases(driver, status=status, limit=limit)}
+    return {"cases": store.list_cases(driver, status=status, institution=institution, limit=limit)}
 
 
 @router.get("/{alert_id}")
